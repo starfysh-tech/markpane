@@ -3,9 +3,7 @@
   "version": "1.0.0",
   "description": "A lightweight Electron viewer that renders markdown files with mermaid diagram support",
   "main": "src/main.js",
-  "bin": {
-    "peekdown": "./bin/peekdown.js"
-  },
+  "bin": "./bin/peekdown.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",

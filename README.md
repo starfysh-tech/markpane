@@ -7,13 +7,16 @@ A lightweight Electron viewer that renders markdown files with mermaid diagram s
 - Renders markdown with GitHub-style typography
 - Renders mermaid code blocks as SVG diagrams
 - Light/dark theme via system preference
-- Single window, minimal chrome
+- PDF export with proper pagination
 - Keyboard shortcuts: `Escape` or `Cmd+W` to close
 
 ## Installation
 
 ```bash
-npm install
+git clone https://github.com/starfysh-tech/peekdown.git
+cd peekdown
+yarn install
+yarn link
 ```
 
 ## Usage
@@ -22,19 +25,8 @@ npm install
 # View markdown file
 peekdown ./path/to/file.md
 
-# Export to PDF (headless)
+# Export to PDF
 peekdown ./path/to/file.md --pdf output.pdf
-
-# Development
-npm start -- ./path/to/file.md
-npm start -- ./path/to/file.md --pdf output.pdf
-```
-
-## Building
-
-```bash
-# Build for macOS
-npm run build:mac
 ```
 
 ## Keyboard Shortcuts
@@ -51,3 +43,8 @@ npm run build:mac
 - markdown-it
 - mermaid
 - DOMPurify
+
+## Roadmap
+
+- [ ] Homebrew formula for easier installation
+- [ ] Standalone macOS app (.dmg)

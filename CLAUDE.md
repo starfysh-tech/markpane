@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ```bash
-npm install                        # Install dependencies
-npm start -- ./f.md                # View file
-npm start -- ./f.md --pdf out.pdf  # Export to PDF
-npm run build:mac                  # Package for macOS
+yarn install                        # Install dependencies
+yarn start -- ./f.md                # View file
+yarn start -- ./f.md --pdf out.pdf  # Export to PDF
+yarn build:mac                      # Package for macOS
 ```
 
 ## Architecture
