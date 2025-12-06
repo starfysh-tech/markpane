@@ -19,11 +19,15 @@ npm install
 ## Usage
 
 ```bash
+# View markdown file
+peekdown ./path/to/file.md
+
+# Export to PDF (headless)
+peekdown ./path/to/file.md --pdf output.pdf
+
 # Development
 npm start -- ./path/to/file.md
-
-# After packaging
-peekdown ./path/to/file.md
+npm start -- ./path/to/file.md --pdf output.pdf
 ```
 
 ## Building

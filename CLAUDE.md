@@ -2,21 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
-
-Peekdown is a lightweight Electron viewer that renders markdown files with mermaid diagram support. Optimized for quick file inspection, not editing.
-
 ## Development Commands
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development (with markdown file)
-npm start -- ./path/to/file.md
-
-# Build for macOS
-npm run build:mac
+npm install                        # Install dependencies
+npm start -- ./f.md                # View file
+npm start -- ./f.md --pdf out.pdf  # Export to PDF
+npm run build:mac                  # Package for macOS
 ```
 
 ## Architecture
@@ -26,31 +18,59 @@ npm run build:mac
 │                   Electron                      │
 ├──────────────────┬──────────────────────────────┤
 │   Main Process   │      Renderer Process        │
+│   src/main.js    │      src/renderer.js         │
 │                  │                              │
 │  - File I/O      │  - markdown-it parsing       │
 │  - Window mgmt   │  - mermaid rendering         │
 │  - CLI args      │  - DOM injection             │
-│  - IPC bridge    │  - Theme detection           │
-└──────────────────┴──────────────────────────────┘
+│  - IPC send      │  - Theme detection           │
+└────────┬─────────┴──────────────┬───────────────┘
+         │    src/preload.js      │
+         └────── contextBridge ───┘
 ```
 
-**File Structure:**
-- `src/main.js` - Electron main process (CLI args, window, IPC)
-- `src/preload.js` - Context bridge for IPC (exposes electronAPI)
-- `src/renderer.js` - Markdown + mermaid rendering pipeline
-- `src/index.html` - App shell
-- `assets/github-markdown.css` - GitHub-style markdown CSS
-- `assets/app.css` - Theme variables and custom styles
+**Key Files:**
+- `src/main.js` - Electron main process, CLI args, window management
+- `src/preload.js` - IPC bridge via contextBridge (exposes `window.electronAPI`)
+- `src/renderer.js` - Markdown parsing, mermaid rendering, theme handling
+- `assets/app.css` - Theme variables, layout, titlebar styling
 
-**Rendering Pipeline:**
-1. Main process reads markdown file from CLI arg
-2. Content sent to renderer via IPC
-3. markdown-it parses content (custom fence for mermaid blocks)
-4. DOMPurify sanitizes HTML output
-5. HTML injected into DOM
-6. mermaid.run() converts divs to SVG
+## Code Conventions
 
-**Security:**
-- `contextIsolation: true` / `nodeIntegration: false`
-- DOMPurify sanitizes all markdown output
-- Mermaid `securityLevel: 'strict'`
+**Naming:**
+- Functions/variables: `snake_case` (e.g., `render_content`, `file_path`)
+- CSS classes: `kebab-case` (e.g., `titlebar-spacer`, `markdown-body`)
+- IPC channels: `kebab-case` (e.g., `file-content`, `error`)
+
+**CSS Theme Variables:**
+- All colors use CSS variables defined in `:root` and `.theme-dark`
+- Variable naming: `--category-property` (e.g., `--bg-color`, `--text-secondary`)
+
+## Patterns
+
+**Adding IPC channels:**
+1. Define channel in `main.js`: `webContents.send('channel-name', data)`
+2. Expose in `preload.js`: `ipcRenderer.on('channel-name', callback)`
+3. Consume in `renderer.js`: `window.electronAPI.onChannelName(callback)`
+
+**Adding mermaid error handling:**
+- Wrap mermaid.render() in try/catch
+- On error, replace element content with styled `.mermaid-error` div
+
+**Theme-aware rendering:**
+- Check `window.matchMedia('(prefers-color-scheme: dark)').matches`
+- Re-render mermaid on theme change (original content stored in `data-original` attribute)
+
+## Security Requirements
+
+- `contextIsolation: true` / `nodeIntegration: false` - Never change these
+- All HTML output must be sanitized with DOMPurify before DOM injection
+- Mermaid `securityLevel: 'strict'` - No click handlers in diagrams
+- Never expose Node APIs to renderer directly
+
+## Anti-patterns
+
+- Don't inject unsanitized HTML into the DOM - always use DOMPurify
+- Don't enable nodeIntegration in window config
+- Don't bypass preload.js for IPC communication
+- Don't hardcode colors - use CSS variables for theme support

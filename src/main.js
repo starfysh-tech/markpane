@@ -1,18 +1,29 @@
 const { app, BrowserWindow, dialog, globalShortcut } = require('electron');
 const path = require('path');
-
-let display_name = 'Peekdown';
 const fs = require('fs');
 
+let display_name = 'Peekdown';
 let main_window = null;
 let file_content = null;
 let error_message = null;
 
-// Parse CLI args and read file
-const file_path = process.argv[2];
+// Parse CLI args
+const args = process.argv.slice(2);
+let file_path = null;
+let pdf_output = null;
 
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--pdf' && args[i + 1]) {
+    pdf_output = args[i + 1];
+    i++; // Skip next arg
+  } else if (!args[i].startsWith('--')) {
+    file_path = args[i];
+  }
+}
+
+// Read input file
 if (!file_path) {
-  error_message = 'No markdown file specified. Usage: peekdown <file.md>';
+  error_message = 'No markdown file specified.\nUsage: peekdown <file.md> [--pdf output.pdf]';
 } else if (!fs.existsSync(file_path)) {
   error_message = `File not found: ${file_path}`;
 } else {
@@ -25,10 +36,13 @@ if (!file_path) {
 }
 
 function create_window() {
+  const is_pdf_mode = !!pdf_output;
+
   main_window = new BrowserWindow({
     width: 900,
     height: 700,
-    titleBarStyle: 'hiddenInset',
+    show: !is_pdf_mode,  // Hide window in PDF mode
+    titleBarStyle: is_pdf_mode ? 'default' : 'hiddenInset',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -41,25 +55,58 @@ function create_window() {
 
   main_window.webContents.on('did-finish-load', () => {
     if (error_message) {
-      main_window.webContents.send('error', error_message);
-      dialog.showErrorBox('Error', error_message);
+      if (is_pdf_mode) {
+        console.error(error_message);
+        app.quit();
+      } else {
+        main_window.webContents.send('error', error_message);
+        dialog.showErrorBox('Error', error_message);
+      }
     } else if (file_content) {
       main_window.webContents.send('file-content', file_content, display_name);
+
+      if (is_pdf_mode) {
+        // Wait for mermaid diagrams to render
+        setTimeout(async () => {
+          try {
+            const pdf_data = await main_window.webContents.printToPDF({
+              printBackground: true,
+              pageSize: 'A4',
+              margins: {
+                top: 0.5,
+                bottom: 0.5,
+                left: 0.5,
+                right: 0.5
+              }
+            });
+
+            const output_path = path.resolve(pdf_output);
+            fs.writeFileSync(output_path, pdf_data);
+            console.log(`PDF saved to: ${output_path}`);
+            app.quit();
+          } catch (err) {
+            console.error(`Failed to generate PDF: ${err.message}`);
+            app.quit();
+          }
+        }, 2000);  // 2 second delay for mermaid rendering
+      }
     }
   });
 
-  // Register keyboard shortcuts
-  globalShortcut.register('Escape', () => {
-    if (main_window && !main_window.isDestroyed()) {
-      main_window.close();
-    }
-  });
+  // Only register shortcuts in UI mode
+  if (!is_pdf_mode) {
+    globalShortcut.register('Escape', () => {
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.close();
+      }
+    });
 
-  globalShortcut.register('CommandOrControl+W', () => {
-    if (main_window && !main_window.isDestroyed()) {
-      main_window.close();
-    }
-  });
+    globalShortcut.register('CommandOrControl+W', () => {
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.close();
+      }
+    });
+  }
 
   main_window.on('closed', () => {
     main_window = null;

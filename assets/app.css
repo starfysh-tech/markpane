@@ -177,6 +177,33 @@ body {
 @media print {
   body {
     -webkit-app-region: no-drag;
+    height: auto;
+    overflow: visible;
+  }
+
+  .titlebar-spacer {
+    display: none;
+  }
+
+  #content {
+    height: auto;
+    overflow: visible;
+    padding-top: 20px;
+  }
+
+  .mermaid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  table {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
   }
 
   .no-print {
