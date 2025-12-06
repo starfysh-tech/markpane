@@ -11,19 +11,54 @@ let error_message = null;
 const args = process.argv.slice(2);
 let file_path = null;
 let pdf_output = null;
+let show_version = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--pdf' && args[i + 1]) {
     pdf_output = args[i + 1];
     i++; // Skip next arg
+  } else if (args[i] === '--version' || args[i] === '-v') {
+    show_version = true;
   } else if (!args[i].startsWith('--')) {
     file_path = args[i];
   }
 }
 
+function show_help() {
+  const pkg = require('../package.json');
+  console.log(`
+${pkg.name} v${pkg.version}
+${pkg.description}
+
+Usage:
+  peekdown <file.md>                View markdown file
+  peekdown <file.md> --pdf out.pdf  Export to PDF
+
+Options:
+  -h, --help      Show this help message
+  -v, --version   Show version number
+
+Shortcuts:
+  Escape          Close window
+  Cmd/Ctrl+W      Close window
+`);
+  process.exit(0);
+}
+
+// Handle help and version
+if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
+  show_help();
+}
+
+if (show_version) {
+  const pkg = require('../package.json');
+  console.log(pkg.version);
+  process.exit(0);
+}
+
 // Read input file
 if (!file_path) {
-  error_message = 'No markdown file specified.\nUsage: peekdown <file.md> [--pdf output.pdf]';
+  error_message = 'No markdown file specified.\nUsage: peekdown <file.md> [--pdf output.pdf]\nRun peekdown --help for more options.';
 } else if (!fs.existsSync(file_path)) {
   error_message = `File not found: ${file_path}`;
 } else {
