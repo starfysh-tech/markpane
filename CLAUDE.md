@@ -8,8 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 yarn install                        # Install dependencies
 yarn start -- ./f.md                # View file
 yarn start -- ./f.md --pdf out.pdf  # Export to PDF
+yarn build:quicklook                # Build Quick Look helper + extension
 yarn build:mac                      # Package for macOS
 ```
+
+## Quick Look Signing
+
+Quick Look extensions are ignored by macOS unless the host app and extension are signed with a valid Developer ID Application certificate. Ad-hoc signatures will fall back to the built-in plain text preview.
 
 ## Architecture
 

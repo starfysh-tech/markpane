@@ -7,7 +7,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "build:mac": "electron-builder --mac"
+    "build:quicklook": "./scripts/build-quicklook.sh",
+    "build:mac": "./scripts/build-quicklook.sh && electron-builder --mac"
   },
   "keywords": [
     "markdown",
@@ -29,13 +30,21 @@
   "build": {
     "appId": "com.peekdown.app",
     "productName": "Peekdown",
+    "icon": "assets/icon.png",
     "mac": {
       "category": "public.app-category.developer-tools",
+      "icon": "assets/icon.png",
       "target": "dmg"
     },
     "files": [
       "src/**/*",
       "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/quicklook/PeekdownQLHost.app",
+        "to": "PeekdownQLHost.app"
+      }
     ]
   }
 }

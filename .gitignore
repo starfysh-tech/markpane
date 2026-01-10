@@ -81,6 +81,8 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+macos/build
+assets/quicklook/PeekdownQLHost.app
 
 # Gatsby files
 .cache/

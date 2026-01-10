@@ -1,6 +1,8 @@
 const { app, BrowserWindow, dialog, globalShortcut } = require('electron');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 let display_name = 'Peekdown';
 let main_window = null;
@@ -45,8 +47,12 @@ Shortcuts:
   process.exit(0);
 }
 
+const is_mac = process.platform === 'darwin';
+const is_packaged = app.isPackaged;
+const is_help = args.includes('--help') || args.includes('-h');
+
 // Handle help and version
-if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
+if ((args.length === 0 && !is_packaged) || is_help) {
   show_help();
 }
 
@@ -56,9 +62,13 @@ if (show_version) {
   process.exit(0);
 }
 
+const is_cli_mode = !!file_path || !!pdf_output || show_version;
+
 // Read input file
 if (!file_path) {
-  error_message = 'No markdown file specified.\nUsage: peekdown <file.md> [--pdf output.pdf]\nRun peekdown --help for more options.';
+  if (is_cli_mode) {
+    error_message = 'No markdown file specified.\nUsage: peekdown <file.md> [--pdf output.pdf]\nRun peekdown --help for more options.';
+  }
 } else if (!fs.existsSync(file_path)) {
   error_message = `File not found: ${file_path}`;
 } else {
@@ -68,6 +78,157 @@ if (!file_path) {
   } catch (err) {
     error_message = `Failed to read file: ${err.message}`;
   }
+}
+
+function get_app_bundle_path() {
+  if (!is_mac || !is_packaged) {
+    return null;
+  }
+  return path.resolve(app.getPath('exe'), '../../..');
+}
+
+function get_applications_location() {
+  const bundle_path = get_app_bundle_path();
+  if (!bundle_path) {
+    return null;
+  }
+  const applications_path = path.join('/Applications', path.sep);
+  const user_applications_path = path.join(os.homedir(), 'Applications', path.sep);
+  if (bundle_path.startsWith(applications_path)) {
+    return '/Applications';
+  }
+  if (bundle_path.startsWith(user_applications_path)) {
+    return path.join(os.homedir(), 'Applications');
+  }
+  return null;
+}
+
+function should_offer_quicklook_setup() {
+  return is_mac && is_packaged && !is_cli_mode && !is_help;
+}
+
+function load_quicklook_state() {
+  try {
+    const state_path = path.join(app.getPath('userData'), 'quicklook.json');
+    if (!fs.existsSync(state_path)) {
+      return null;
+    }
+    return JSON.parse(fs.readFileSync(state_path, 'utf-8'));
+  } catch (err) {
+    return null;
+  }
+}
+
+function save_quicklook_state(state) {
+  const state_path = path.join(app.getPath('userData'), 'quicklook.json');
+  fs.mkdirSync(path.dirname(state_path), { recursive: true });
+  fs.writeFileSync(state_path, JSON.stringify(state, null, 2));
+}
+
+function copy_app_bundle(source_path, target_path) {
+  if (fs.existsSync(target_path)) {
+    fs.rmSync(target_path, { recursive: true, force: true });
+  }
+  fs.cpSync(source_path, target_path, { recursive: true });
+}
+
+function relaunch_from(target_path) {
+  const executable_name = path.basename(app.getPath('exe'));
+  const exec_path = path.join(target_path, 'Contents', 'MacOS', executable_name);
+  app.relaunch({ execPath: exec_path });
+  app.exit(0);
+}
+
+async function prompt_move_to_applications() {
+  const result = await dialog.showMessageBox({
+    type: 'question',
+    buttons: ['Move to /Applications', 'Move to ~/Applications', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    message: 'Move Peekdown to Applications?',
+    detail: 'Peekdown can register its Quick Look preview only from the Applications folder.'
+  });
+  return result.response;
+}
+
+function register_quicklook(apps_path) {
+  const helper_source = path.join(process.resourcesPath, 'PeekdownQLHost.app');
+  if (!fs.existsSync(helper_source)) {
+    console.warn('Quick Look helper app not found in resources.');
+    return;
+  }
+
+  const helper_target = path.join(apps_path, 'PeekdownQLHost.app');
+  copy_app_bundle(helper_source, helper_target);
+  const extension_path = path.join(helper_target, 'Contents', 'PlugIns', 'PeekdownQLExt.appex');
+
+  const state = {
+    registered_at: new Date().toISOString(),
+    app_path: get_app_bundle_path(),
+    helper_path: helper_target,
+    app_version: app.getVersion()
+  };
+  save_quicklook_state(state);
+
+  spawn('xattr', ['-dr', 'com.apple.quarantine', helper_target], {
+    detached: true,
+    stdio: 'ignore'
+  }).unref();
+
+  if (fs.existsSync(extension_path)) {
+    spawn('pluginkit', ['-a', extension_path], {
+      detached: true,
+      stdio: 'ignore'
+    }).unref();
+  }
+
+  const open_process = spawn('open', ['-a', helper_target, '--args', '--register'], {
+    detached: true,
+    stdio: 'ignore'
+  });
+  open_process.unref();
+}
+
+async function maybe_handle_quicklook_setup() {
+  if (!should_offer_quicklook_setup()) {
+    return false;
+  }
+
+  const apps_path = get_applications_location();
+  if (!apps_path) {
+    const response = await prompt_move_to_applications();
+    if (response === 2) {
+      app.quit();
+      return true;
+    }
+
+    const target_root = response === 0 ? '/Applications' : path.join(os.homedir(), 'Applications');
+    const bundle_path = get_app_bundle_path();
+    if (!bundle_path) {
+      app.quit();
+      return true;
+    }
+
+    try {
+      fs.mkdirSync(target_root, { recursive: true });
+      const target_path = path.join(target_root, path.basename(bundle_path));
+      copy_app_bundle(bundle_path, target_path);
+      relaunch_from(target_path);
+      return true;
+    } catch (err) {
+      dialog.showErrorBox('Move Failed', `Could not move Peekdown: ${err.message}`);
+      app.quit();
+      return true;
+    }
+  }
+
+  const state = load_quicklook_state();
+  if (!state || state.app_path !== get_app_bundle_path() || state.app_version !== app.getVersion()) {
+    register_quicklook(apps_path);
+  }
+
+  app.quit();
+  return true;
 }
 
 function create_window() {
@@ -153,7 +314,12 @@ function create_window() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const handled_quicklook = await maybe_handle_quicklook_setup();
+  if (handled_quicklook) {
+    return;
+  }
+
   create_window();
 
   app.on('activate', () => {

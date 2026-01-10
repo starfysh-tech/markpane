@@ -29,6 +29,18 @@ peekdown ./path/to/file.md
 peekdown ./path/to/file.md --pdf output.pdf
 ```
 
+## Quick Look (macOS 14+)
+
+Peekdown bundles a Quick Look extension for rendering Markdown (including mermaid) in Finder previews.
+
+```bash
+# Build the helper app + extension
+yarn build:quicklook
+```
+
+On first launch, Peekdown will prompt to move into `/Applications` or `~/Applications` and register the Quick Look extension.
+TODO: Once Apple Developer enrollment is confirmed, sign the host app + extension with a Developer ID Application certificate so Quick Look loads outside of Xcode.
+
 ## Keyboard Shortcuts
 
 | Key | Action |
