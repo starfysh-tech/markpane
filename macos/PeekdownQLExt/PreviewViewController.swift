@@ -59,9 +59,12 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         let markdownIt = Self.loadResource(named: "markdown-it.min", extension: "js")
         let domPurify = Self.loadResource(named: "purify.min", extension: "js")
         let mermaid = Self.loadResource(named: "mermaid.min", extension: "js")
+        let highlightJS = Self.loadResource(named: "highlight.min", extension: "js")
+        let highlightLight = Self.loadResource(named: "highlight-light", extension: "css")
+        let highlightDark = Self.loadResource(named: "highlight-dark", extension: "css")
         let frontmatterHTML = Self.frontmatterHTML(from: parts.frontmatter)
 
-        if css.isEmpty || markdownIt.isEmpty || domPurify.isEmpty || mermaid.isEmpty {
+        if css.isEmpty || markdownIt.isEmpty || domPurify.isEmpty || mermaid.isEmpty || highlightJS.isEmpty {
             let escaped = Self.escapeHTML(parts.body)
             return """
             <!doctype html>
@@ -86,6 +89,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             <meta charset=\"utf-8\">
             <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
             <style>\(css)</style>
+            <style>\(highlightLight)</style>
+            <style>@media (prefers-color-scheme: dark) {\(highlightDark)}</style>
         </head>
         <body>
             \(frontmatterHTML)
@@ -93,6 +98,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             <script>\(markdownIt)</script>
             <script>\(domPurify)</script>
             <script>\(mermaid)</script>
+            <script>\(highlightJS)</script>
             <script>
             (() => {
                 const source = \(markdownJSON);
@@ -109,6 +115,13 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
                     const info = (token.info || '').trim().toLowerCase();
                     if (info === 'mermaid') {
                         return '<div class=\"mermaid\">' + token.content + '</div>';
+                    }
+                    if (info) {
+                        const lang = info.split(/\\s+/)[0];
+                        if (lang) {
+                            token.attrJoin('class', 'language-' + lang);
+                            token.attrJoin('class', 'hljs');
+                        }
                     }
                     return originalFence(tokens, idx, options, env, self);
                 };
@@ -131,6 +144,24 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
                     warning.className = 'mermaid-error';
                     warning.textContent = 'Mermaid failed to render.';
                     container.prepend(warning);
+                });
+
+                const blocks = container.querySelectorAll('pre code');
+                blocks.forEach((block) => {
+                    if (block.className.includes('language-')) {
+                        if (window.hljs) {
+                            window.hljs.highlightElement(block);
+                        }
+                        return;
+                    }
+                    if (window.hljs) {
+                        const result = window.hljs.highlightAuto(block.textContent);
+                        block.innerHTML = result.value;
+                        block.classList.add('hljs');
+                        if (result.language) {
+                            block.classList.add('language-' + result.language);
+                        }
+                    }
                 });
             })();
             </script>

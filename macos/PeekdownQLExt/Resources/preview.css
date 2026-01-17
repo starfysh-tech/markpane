@@ -32,9 +32,13 @@ pre, code {
 }
 
 pre {
+  margin: 0 0 12px 0;
+}
+
+pre code.hljs {
+  display: block;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(120, 120, 130, 0.14);
   overflow-x: auto;
 }
 
