@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, Menu } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -16,6 +16,8 @@ const args = process.argv.slice(2);
 let file_path = null;
 let pdf_output = null;
 let show_version = false;
+let uninstall_quicklook_flag = false;
+let uninstall_all_flag = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--pdf' && args[i + 1]) {
@@ -25,6 +27,10 @@ for (let i = 0; i < args.length; i++) {
     show_version = true;
   } else if (args[i] === '--ql-debug' || args[i] === '--quicklook-debug') {
     quicklook_debug = true;
+  } else if (args[i] === '--uninstall-quicklook') {
+    uninstall_quicklook_flag = true;
+  } else if (args[i] === '--uninstall-all') {
+    uninstall_all_flag = true;
   } else if (!args[i].startsWith('--')) {
     file_path = args[i];
   }
@@ -44,6 +50,8 @@ Options:
   -h, --help      Show this help message
   -v, --version   Show version number
   --ql-debug      Enable Quick Look telemetry logging
+  --uninstall-quicklook  Remove the Quick Look extension
+  --uninstall-all  Remove Peekdown and its Quick Look extension
 
 Shortcuts:
   Escape          Close window
@@ -67,7 +75,7 @@ if (show_version) {
   process.exit(0);
 }
 
-const is_cli_mode = !!file_path || !!pdf_output || show_version;
+const is_cli_mode = !!file_path || !!pdf_output || show_version || uninstall_quicklook_flag || uninstall_all_flag;
 
 // Read input file
 if (!file_path) {
@@ -127,6 +135,7 @@ function create_quicklook_telemetry() {
   if (!is_quicklook_debug_enabled()) {
     return null;
   }
+  ensure_quicklook_debug_flag();
   return {
     started_at: new Date().toISOString(),
     app_version: app.getVersion(),
@@ -193,6 +202,25 @@ function write_quicklook_telemetry(telemetry) {
   }
 }
 
+function ensure_quicklook_debug_flag() {
+  try {
+    const container_path = path.join(
+      os.homedir(),
+      'Library',
+      'Containers',
+      'com.peekdown.app.quicklook-host.quicklook',
+      'Data',
+      'Library',
+      'Caches'
+    );
+    fs.mkdirSync(container_path, { recursive: true });
+    const flag_path = path.join(container_path, 'quicklook-extension.debug');
+    fs.writeFileSync(flag_path, new Date().toISOString());
+  } catch (err) {
+    console.warn('Quick Look debug flag write failed:', err && err.message ? err.message : err);
+  }
+}
+
 function should_offer_quicklook_setup() {
   return is_mac && is_packaged && !is_cli_mode && !is_help;
 }
@@ -213,6 +241,107 @@ function save_quicklook_state(state) {
   const state_path = path.join(app.getPath('userData'), 'quicklook.json');
   fs.mkdirSync(path.dirname(state_path), { recursive: true });
   fs.writeFileSync(state_path, JSON.stringify(state, null, 2));
+}
+
+function remove_quicklook_state() {
+  try {
+    const state_path = path.join(app.getPath('userData'), 'quicklook.json');
+    fs.rmSync(state_path, { force: true });
+  } catch (err) {
+    console.warn('Quick Look state removal failed:', err && err.message ? err.message : err);
+  }
+}
+
+function uninstall_quicklook() {
+  if (!is_mac || !is_packaged) {
+    dialog.showErrorBox('Quick Look Uninstall', 'Quick Look uninstall is only available in the packaged macOS app.');
+    return;
+  }
+
+  const response = dialog.showMessageBoxSync({
+    type: 'warning',
+    buttons: ['Uninstall Quick Look', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1,
+    message: 'Remove Peekdown Quick Look?',
+    detail: 'This will unregister the Quick Look extension, remove PeekdownQLHost.app from /Applications and ~/Applications, clear Quick Look caches, and delete Quick Look logs.'
+  });
+
+  if (response !== 0) {
+    return;
+  }
+
+  const helper_paths = new Set();
+  const state = load_quicklook_state();
+  if (state && state.helper_path) {
+    helper_paths.add(state.helper_path);
+  }
+  helper_paths.add(path.join('/Applications', 'PeekdownQLHost.app'));
+  helper_paths.add(path.join(os.homedir(), 'Applications', 'PeekdownQLHost.app'));
+
+  for (const helper_path of helper_paths) {
+    const extension_path = path.join(helper_path, 'Contents', 'PlugIns', 'PeekdownQLExt.appex');
+    if (fs.existsSync(extension_path)) {
+      spawnSync('pluginkit', ['-r', extension_path], { stdio: 'ignore' });
+    }
+    if (fs.existsSync(helper_path)) {
+      fs.rmSync(helper_path, { recursive: true, force: true });
+    }
+  }
+
+  spawnSync('qlmanage', ['-r'], { stdio: 'ignore' });
+  spawnSync('qlmanage', ['-r', 'cache'], { stdio: 'ignore' });
+
+  try {
+    const container_cache = path.join(
+      os.homedir(),
+      'Library',
+      'Containers',
+      'com.peekdown.app.quicklook-host.quicklook',
+      'Data',
+      'Library',
+      'Caches'
+    );
+    fs.rmSync(path.join(container_cache, 'quicklook-extension.log'), { force: true });
+    fs.rmSync(path.join(container_cache, 'quicklook-extension.debug'), { force: true });
+  } catch (err) {
+    console.warn('Quick Look log cleanup failed:', err && err.message ? err.message : err);
+  }
+
+  remove_quicklook_state();
+  dialog.showMessageBoxSync({
+    type: 'info',
+    buttons: ['OK'],
+    message: 'Quick Look removed',
+    detail: 'Peekdown Quick Look has been unregistered.'
+  });
+}
+
+function uninstall_all() {
+  if (!is_mac || !is_packaged) {
+    dialog.showErrorBox('Uninstall Peekdown', 'Uninstall is only available in the packaged macOS app.');
+    return;
+  }
+
+  const response = dialog.showMessageBoxSync({
+    type: 'warning',
+    buttons: ['Uninstall Peekdown', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1,
+    message: 'Remove Peekdown?',
+    detail: 'This will uninstall Peekdown, unregister the Quick Look extension, remove PeekdownQLHost.app, clear Quick Look caches, and delete Peekdown.app.'
+  });
+
+  if (response !== 0) {
+    return;
+  }
+
+  uninstall_quicklook();
+
+  const app_path = get_app_bundle_path();
+  if (app_path && fs.existsSync(app_path)) {
+    fs.rmSync(app_path, { recursive: true, force: true });
+  }
 }
 
 function copy_app_bundle(source_path, target_path) {
@@ -495,9 +624,41 @@ function create_window() {
 }
 
 app.whenReady().then(async () => {
+  if (uninstall_quicklook_flag) {
+    uninstall_quicklook();
+    app.quit();
+    return;
+  }
+
+  if (uninstall_all_flag) {
+    uninstall_all();
+    app.quit();
+    return;
+  }
   const handled_quicklook = await maybe_handle_quicklook_setup();
   if (handled_quicklook) {
     return;
+  }
+
+  if (is_mac && !is_cli_mode) {
+    const template = [
+      {
+        label: app.name,
+        submenu: [
+          {
+            label: 'Uninstall Quick Look…',
+            click: uninstall_quicklook
+          },
+          {
+            label: 'Uninstall Peekdown…',
+            click: uninstall_all
+          },
+          { type: 'separator' },
+          { role: 'quit' }
+        ]
+      }
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   }
 
   create_window();

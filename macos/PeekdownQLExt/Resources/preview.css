@@ -67,6 +67,9 @@ pre code.hljs {
 .frontmatter pre {
   margin: 0;
   background: rgba(120, 120, 130, 0.12);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 code {

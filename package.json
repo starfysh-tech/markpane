@@ -1,6 +1,6 @@
 {
   "name": "peekdown",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "A lightweight Electron viewer that renders markdown files with mermaid diagram support",
   "main": "src/main.js",
   "bin": "./bin/peekdown.js",
@@ -36,7 +36,7 @@
       "icon": "assets/icon.png",
       "identity": "Starfysh, LLC (A3KNB5VZH2)",
       "signIgnore": [
-        "**/PeekdownQLHost.app.bundled/**"
+        "PeekdownQLHost\\.app\\.bundled"
       ],
       "target": "dmg"
     },

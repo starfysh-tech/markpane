@@ -4,6 +4,10 @@ import WebKit
 
 @objc(PreviewViewController)
 final class PreviewViewController: NSViewController, QLPreviewingController, WKNavigationDelegate {
+    private static var sharedWebView: WKWebView?
+    private static var previewCount = 0
+    private static let resetAfterPreviews = 50
+
     private var webView: WKWebView!
     private var backgroundView: NSVisualEffectView!
     private let logger = QuickLookLogger()
@@ -17,12 +21,19 @@ final class PreviewViewController: NSViewController, QLPreviewingController, WKN
         background.translatesAutoresizingMaskIntoConstraints = false
         backgroundView = background
 
-        let config = WKWebViewConfiguration()
-        config.preferences.javaScriptCanOpenWindowsAutomatically = false
-        let webView = WKWebView(frame: .zero, configuration: config)
+        let webView: WKWebView
+        if let sharedWebView = Self.sharedWebView {
+            webView = sharedWebView
+        } else {
+            let config = WKWebViewConfiguration()
+            config.preferences.javaScriptCanOpenWindowsAutomatically = false
+            webView = WKWebView(frame: .zero, configuration: config)
+            webView.setValue(false, forKey: "drawsBackground")
+            Self.sharedWebView = webView
+        }
         webView.translatesAutoresizingMaskIntoConstraints = false
-        webView.setValue(false, forKey: "drawsBackground")
         webView.navigationDelegate = self
+        webView.removeFromSuperview()
         self.webView = webView
 
         let container = NSView()
@@ -65,6 +76,12 @@ final class PreviewViewController: NSViewController, QLPreviewingController, WKN
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         logger.log("webView didFinish")
+        Self.previewCount += 1
+        if Self.previewCount >= Self.resetAfterPreviews {
+            logger.log("webView reset after \(Self.previewCount) previews")
+            Self.sharedWebView = nil
+            Self.previewCount = 0
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -160,35 +177,39 @@ final class PreviewViewController: NSViewController, QLPreviewingController, WKN
                 const container = document.getElementById('content');
                 container.innerHTML = sanitized;
 
-                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                mermaid.initialize({
-                    startOnLoad: false,
-                    securityLevel: 'strict',
-                    theme: prefersDark ? 'dark' : 'default'
-                });
-                mermaid.run({ querySelector: '.mermaid' }).catch(() => {
-                    const warning = document.createElement('div');
-                    warning.className = 'mermaid-error';
-                    warning.textContent = 'Mermaid failed to render.';
-                    container.prepend(warning);
-                });
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        mermaid.initialize({
+                            startOnLoad: false,
+                            securityLevel: 'strict',
+                            theme: prefersDark ? 'dark' : 'default'
+                        });
+                        mermaid.run({ querySelector: '.mermaid' }).catch(() => {
+                            const warning = document.createElement('div');
+                            warning.className = 'mermaid-error';
+                            warning.textContent = 'Mermaid failed to render.';
+                            container.prepend(warning);
+                        });
 
-                const blocks = container.querySelectorAll('pre code');
-                blocks.forEach((block) => {
-                    if (block.className.includes('language-')) {
-                        if (window.hljs) {
-                            window.hljs.highlightElement(block);
-                        }
-                        return;
-                    }
-                    if (window.hljs) {
-                        const result = window.hljs.highlightAuto(block.textContent);
-                        block.innerHTML = result.value;
-                        block.classList.add('hljs');
-                        if (result.language) {
-                            block.classList.add('language-' + result.language);
-                        }
-                    }
+                        const blocks = container.querySelectorAll('pre code');
+                        blocks.forEach((block) => {
+                            if (block.className.includes('language-')) {
+                                if (window.hljs) {
+                                    window.hljs.highlightElement(block);
+                                }
+                                return;
+                            }
+                            if (window.hljs) {
+                                const result = window.hljs.highlightAuto(block.textContent);
+                                block.innerHTML = result.value;
+                                block.classList.add('hljs');
+                                if (result.language) {
+                                    block.classList.add('language-' + result.language);
+                                }
+                            }
+                        });
+                    }, 0);
                 });
             })();
             </script>
@@ -262,17 +283,24 @@ final class PreviewViewController: NSViewController, QLPreviewingController, WKN
 
 final class QuickLookLogger {
     private let isEnabled: Bool
-    private let logURL: URL?
+    private var logURL: URL?
+    private let cacheURL: URL?
 
     init() {
         let envValue = ProcessInfo.processInfo.environment["PEEKDOWN_QL_DEBUG"]
         let envEnabled = envValue == "1" || envValue?.lowercased() == "true"
         let defaultsEnabled = UserDefaults.standard.bool(forKey: "QLDebug")
-        isEnabled = envEnabled || defaultsEnabled
+        let flagEnabled = QuickLookLogger.debugFlagExists()
+        isEnabled = envEnabled || defaultsEnabled || flagEnabled
+        cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
 
         if isEnabled {
-            let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
-            logURL = cacheURL?.appendingPathComponent("quicklook-extension.log")
+            if let cacheURL = cacheURL {
+                try? FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+                logURL = cacheURL.appendingPathComponent("quicklook-extension.log")
+            } else {
+                logURL = nil
+            }
         } else {
             logURL = nil
         }
@@ -287,7 +315,7 @@ final class QuickLookLogger {
         if let data = line.data(using: .utf8) {
             if FileManager.default.fileExists(atPath: logURL.path) {
                 if let handle = try? FileHandle(forWritingTo: logURL) {
-                    try? handle.seekToEnd()
+                    _ = try? handle.seekToEnd()
                     try? handle.write(contentsOf: data)
                     try? handle.close()
                 }
@@ -295,5 +323,14 @@ final class QuickLookLogger {
                 try? data.write(to: logURL)
             }
         }
+    }
+
+    private static func debugFlagExists() -> Bool {
+        let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        guard let cacheURL = cacheURL else {
+            return false
+        }
+        let flagURL = cacheURL.appendingPathComponent("quicklook-extension.debug")
+        return FileManager.default.fileExists(atPath: flagURL.path)
     }
 }

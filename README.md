@@ -27,6 +27,12 @@ peekdown ./path/to/file.md
 
 # Export to PDF
 peekdown ./path/to/file.md --pdf output.pdf
+
+# Uninstall Quick Look extension (with confirmation)
+peekdown --uninstall-quicklook
+
+# Uninstall Peekdown and Quick Look (with confirmation)
+peekdown --uninstall-all
 ```
 
 ## Quick Look (macOS 14+)
@@ -41,9 +47,12 @@ yarn build:quicklook
 On first launch, Peekdown will prompt to move into `/Applications` or `~/Applications` and register the Quick Look extension.
 Quick Look extensions require a Developer ID Application signature to load outside of Xcode.
 For startup telemetry, launch with `PEEKDOWN_QL_DEBUG=1` or `--ql-debug` and check `~/Library/Application Support/Peekdown/quicklook-telemetry.json`.
-For Quick Look extension telemetry, enable `QLDebug` and check the extension cache log:
+For Quick Look extension telemetry, enable `QLDebug` or use the debug flag file:
 `defaults write com.peekdown.app.quicklook-host.quicklook QLDebug -bool YES`
-then open Quick Look and review `~/Library/Containers/com.peekdown.app.quicklook-host.quicklook/Data/Library/Caches/quicklook-extension.log`.
+or run Peekdown with `PEEKDOWN_QL_DEBUG=1` so it writes `quicklook-extension.debug`.
+Then open Quick Look and review `~/Library/Containers/com.peekdown.app.quicklook-host.quicklook/Data/Library/Caches/quicklook-extension.log`.
+To uninstall Quick Look, use `peekdown --uninstall-quicklook` or `Peekdown > Uninstall Quick Look…` from the app menu (when the UI window is open).
+To uninstall Peekdown entirely, run `peekdown --uninstall-all`.
 
 ### Notarization
 
