@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>peekdown - Markdown Preview for macOS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-card: #1a1a1a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent: #ff7a00;
+            --accent-glow: rgba(255, 122, 0, 0.3);
+            --border: #333;
+            --code-bg: #0d0d0d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Scanline effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1000;
+            animation: scanline 8s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(100%); }
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Header/Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 4rem 0;
+        }
+
+        .badge {
+            display: block;
+            width: fit-content;
+            margin: 0 auto 2rem;
+            padding: 0.5rem 1.5rem;
+            border: 2px solid var(--accent);
+            border-radius: 4px;
+            color: var(--accent);
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px var(--accent-glow), 0 0 10px var(--accent-glow); }
+            50% { box-shadow: 0 0 10px var(--accent-glow), 0 0 20px var(--accent-glow); }
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .hero h1::after {
+            content: '_';
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        .tagline {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tagline::before {
+            content: '$ ';
+            color: var(--accent);
+        }
+
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1.4fr;
+            gap: 1.5rem;
+            max-width: 1600px;
+            width: 100%;
+            margin: 3rem 0;
+        }
+
+        .comparison-box {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .comparison-header {
+            background: var(--bg-secondary);
+            color: var(--accent);
+            padding: 1rem;
+            font-weight: 700;
+            font-size: 0.875rem;
+            letter-spacing: 1px;
+            text-align: center;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .comparison-scroll {
+            height: 600px;
+            overflow: auto;
+        }
+
+        #markdown-scroll {
+            overflow-x: hidden;
+        }
+
+        .comparison-scroll pre {
+            margin: 0;
+            padding: 1.5rem;
+            background: var(--code-bg);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            text-align: left;
+        }
+
+        .comparison-scroll code {
+            font-family: 'JetBrains Mono', monospace;
+            text-align: left;
+        }
+
+        .comparison-scroll img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            font-family: 'JetBrains Mono', monospace;
+            border: 2px solid;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            background: transparent;
+            color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border-color: var(--text-secondary);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-primary);
+            color: var(--text-primary);
+        }
+
+        /* Pain Points Section */
+        .pain-points {
+            padding: 6rem 0;
+            background: var(--bg-secondary);
+        }
+
+        .pain-points h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: var(--accent);
+            margin-bottom: 4rem;
+        }
+
+        .pain-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 3rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .pain-card {
+            background: var(--bg-card);
+            padding: 2rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .pain-card h3 {
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .pain-card ul {
+            list-style: none;
+            color: var(--text-secondary);
+        }
+
+        .pain-card ul li {
+            margin-bottom: 0.75rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .pain-card ul li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 6rem 0;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: var(--accent);
+            margin-bottom: 4rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            padding: 2rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Quick Start Section */
+        .quick-start {
+            padding: 6rem 0;
+            background: var(--bg-secondary);
+        }
+
+        .quick-start h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: var(--accent);
+            margin-bottom: 4rem;
+        }
+
+        .code-block {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .code-block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .code-block-title {
+            color: var(--accent);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .code-block pre {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .code-block code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .note {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            padding: 1rem 1.5rem;
+            margin-top: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .note strong {
+            color: var(--accent);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 3rem 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .tagline {
+                font-size: 1rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .comparison-container {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 0 1rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="badge">MARKDOWN VIEWER</div>
+            <h1>peekdown</h1>
+            <p class="tagline">Hit spacebar. See rendered markdown. That's it.</p>
+
+            <div class="comparison-container">
+                <div class="comparison-box">
+                    <div class="comparison-header">Raw Markdown</div>
+                    <div class="comparison-scroll" id="markdown-scroll">
+                        <pre><code>---
+title: Peekdown Demo
+author: Your Name
+date: 2025-01-20
+tags: [markdown, mermaid, demo]
+---
+
+# Welcome to Peekdown 🚀
+
+Your markdown, beautifully rendered with a single spacebar press.
+
+## What You're Seeing
+
+This demo showcases everything peekdown can do:
+
+### Code Highlighting
+
+**Python** — clean and readable:
+```python
+def fibonacci(n: int) -> list[int]:
+    sequence = [0, 1]
+    for _ in range(n - 2):
+        sequence.append(sequence[-1] + sequence[-2])
+    return sequence
+```
+
+**JavaScript** — modern ES6:
+```javascript
+const debounce = (fn, ms) => {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(...args), ms);
+  };
+};
+```
+
+### Mermaid Diagrams
+
+```mermaid
+graph TD
+    A[📄 Markdown File] --> B{Quick Look?}
+    B -->|Spacebar| C[🎨 Rendered Preview]
+    B -->|CLI| D[peekdown file.md]
+    D --> C
+    D --> E[📑 PDF Export]
+    C --> F[✨ Beautiful Output]
+    E --> F
+```
+
+### Tables
+
+| Feature | Electron App | Quick Look |
+|---------|:------------:|:----------:|
+| Markdown rendering | ✓ | ✓ |
+| Mermaid diagrams | ✓ | ✓ |
+| Syntax highlighting | ✓ | ✓ |
+| Theme support | ✓ | ✓ |
+| PDF export | ✓ | — |
+
+### Lists & Formatting
+
+What makes peekdown special:
+- **Zero friction** — spacebar preview, no app launch
+- **Native feeling** — follows your system theme
+- **Developer friendly** — CLI for automation
+
+> "The best tool is the one you don't notice using."
+
+---
+
+*Rendered by peekdown • [GitHub](https://github.com/starfysh-tech/peekdown)*</code></pre>
+                    </div>
+                </div>
+                <div class="comparison-box">
+                    <div class="comparison-header">Rendered Output</div>
+                    <div class="comparison-scroll" id="screenshot-scroll">
+                        <img src="assets/screenshot.png" alt="Peekdown rendered output" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="cta-buttons">
+                <a href="https://github.com/starfysh-tech/peekdown/releases/latest" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download
+                </a>
+                <a href="https://github.com/starfysh-tech/peekdown" class="btn btn-secondary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pain Points Section -->
+    <section class="pain-points">
+        <div class="container">
+            <h2>Why peekdown?</h2>
+            <div class="pain-grid">
+                <div class="pain-card">
+                    <h3>❌ Without</h3>
+                    <ul>
+                        <li>Finder shows markdown as ugly plain text</li>
+                        <li>Open VS Code just to check a README</li>
+                        <li>Your beautiful mermaid diagrams? Invisible.</li>
+                        <li>Export to PDF? Open an app, configure settings, pray it works...</li>
+                    </ul>
+                </div>
+                <div class="pain-card">
+                    <h3>✅ With peekdown</h3>
+                    <ul>
+                        <li>Spacebar = instant preview with styling</li>
+                        <li>Diagrams render automatically</li>
+                        <li>One command for PDF export</li>
+                        <li>Zero configuration needed</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <h2>Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <h3>Quick Look</h3>
+                    <p>Spacebar in Finder. That's all. Your markdown renders instantly with zero friction.</p>
+                </div>
+
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                        <line x1="10" y1="6.5" x2="14" y2="6.5"></line>
+                        <line x1="10" y1="17.5" x2="14" y2="17.5"></line>
+                    </svg>
+                    <h3>Mermaid Diagrams</h3>
+                    <p>Flowcharts, sequence diagrams, ERDs—all rendered live as crisp SVG. Adapts to your theme automatically.</p>
+                </div>
+
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <h3>PDF Export</h3>
+                    <p>One command: <code style="color: var(--accent);">peekdown file.md --pdf out.pdf</code>. Diagrams scale perfectly. Done.</p>
+                </div>
+
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="16 18 22 12 16 6"></polyline>
+                        <polyline points="8 6 2 12 8 18"></polyline>
+                    </svg>
+                    <h3>Syntax Highlighting</h3>
+                    <p>40+ popular languages highlighted automatically. Python, JavaScript, Go, Rust, and more.</p>
+                </div>
+
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <h3>Theme Aware</h3>
+                    <p>Follows your macOS appearance. Light mode, dark mode—diagrams adapt automatically.</p>
+                </div>
+
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                    </svg>
+                    <h3>Frontmatter Support</h3>
+                    <p>YAML frontmatter shows up cleanly separated. Works great with Jekyll, Hugo, or any metadata setup.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section class="quick-start">
+        <div class="container">
+            <h2>Get Started</h2>
+
+            <div class="note" style="margin-top: 0; margin-bottom: 2rem; border-left-color: var(--accent);">
+                <strong>1.</strong> <a href="https://github.com/starfysh-tech/peekdown/releases" style="color: var(--accent); text-decoration: none;">Download the latest release</a> and drag to Applications<br>
+                <strong>2.</strong> Launch once to register Quick Look<br>
+                <strong>3.</strong> Hit spacebar on any .md file in Finder<br>
+                <strong>Pro tip:</strong> Press <code style="color: var(--accent); background: var(--code-bg); padding: 0.2rem 0.5rem; border-radius: 3px;">Escape</code> or <code style="color: var(--accent); background: var(--code-bg); padding: 0.2rem 0.5rem; border-radius: 3px;">Cmd+W</code> to close
+            </div>
+
+            <div class="code-block">
+                <div class="code-block-header">
+                    <span class="code-block-title">Need PDF export?</span>
+                    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+                </div>
+                <pre><code>peekdown ./README.md --pdf output.pdf</code></pre>
+            </div>
+
+            <div class="note">
+                <strong>Requirements:</strong> macOS 14+ • Signed build included in releases
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>Built by <a href="https://starfysh.com" style="color: var(--accent); text-decoration: none;">Starfysh</a></p>
+            <div class="footer-links">
+                <a href="https://github.com/starfysh-tech/peekdown">GitHub</a>
+                <a href="https://github.com/starfysh-tech/peekdown/blob/main/LICENSE">MIT License</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function copyCode(button) {
+            const codeBlock = button.closest('.code-block');
+            const code = codeBlock.querySelector('code').textContent;
+
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'copied!';
+                button.style.color = 'var(--accent)';
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.color = '';
+                }, 2000);
+            });
+        }
+
+        // Synchronized scrolling for comparison boxes
+        (function() {
+            const markdownScroll = document.getElementById('markdown-scroll');
+            const screenshotScroll = document.getElementById('screenshot-scroll');
+
+            if (!markdownScroll || !screenshotScroll) return;
+
+            let isMarkdownScrolling = false;
+            let isScreenshotScrolling = false;
+
+            markdownScroll.addEventListener('scroll', function() {
+                if (isScreenshotScrolling) return;
+                isMarkdownScrolling = true;
+
+                const scrollPercentage = this.scrollTop / (this.scrollHeight - this.clientHeight);
+                const targetScroll = scrollPercentage * (screenshotScroll.scrollHeight - screenshotScroll.clientHeight);
+                screenshotScroll.scrollTop = targetScroll;
+
+                setTimeout(() => { isMarkdownScrolling = false; }, 10);
+            });
+
+            screenshotScroll.addEventListener('scroll', function() {
+                if (isMarkdownScrolling) return;
+                isScreenshotScrolling = true;
+
+                const scrollPercentage = this.scrollTop / (this.scrollHeight - this.clientHeight);
+                const targetScroll = scrollPercentage * (markdownScroll.scrollHeight - markdownScroll.clientHeight);
+                markdownScroll.scrollTop = targetScroll;
+
+                setTimeout(() => { isScreenshotScrolling = false; }, 10);
+            });
+        })();
+    </script>
+</body>
+</html>
