@@ -1,16 +1,64 @@
 # Peekdown
 
-A lightweight Electron viewer that renders markdown files with mermaid diagram support. Optimized for quick file inspection, not editing.
+**Hit spacebar. See rendered markdown. That's it.**
+
+A lightweight markdown viewer for macOS that brings beautiful GitHub-style rendering to Finder's Quick Look. View markdown files with mermaid diagrams instantly—no apps to launch, no context switching.
+
+[**🌐 Website**](https://starfysh-tech.github.io/peekdown/) • [**📥 Download**](https://github.com/starfysh-tech/peekdown/releases/latest)
+
+---
+
+## Why Peekdown?
+
+| ❌ Without Peekdown | ✅ With Peekdown |
+|---------------------|------------------|
+| Finder shows markdown as ugly plain text | Spacebar = instant preview with styling |
+| Open VS Code just to check a README | Your mermaid diagrams render automatically |
+| Your beautiful diagrams? Invisible. | One command for PDF export |
+| Export to PDF? Open an app, configure settings, pray... | Zero configuration needed |
+
+---
 
 ## Features
 
-- Renders markdown with GitHub-style typography
-- Renders mermaid code blocks as SVG diagrams
-- Light/dark theme via system preference
-- PDF export (Letter size, auto-scaled diagrams)
-- Keyboard shortcuts: `Escape` or `Cmd+W` to close
+### 🔍 Quick Look Integration
+Spacebar in Finder. That's all. Your markdown renders instantly with zero friction.
+
+### 📊 Mermaid Diagrams
+Flowcharts, sequence diagrams, ERDs—all rendered live as crisp SVG. Adapts to your theme automatically.
+
+### 🎨 40+ Language Syntax Highlighting
+Python, JavaScript, Go, Rust, and more highlighted automatically with highlight.js.
+
+### 🌓 Theme Aware
+Follows your macOS appearance. Light mode, dark mode—diagrams adapt automatically.
+
+### 📄 PDF Export
+One command: `peekdown file.md --pdf out.pdf`. Diagrams scale perfectly. Done.
+
+### 🔐 100% Local & Private
+- **No data collection** - Zero telemetry or tracking
+- **Fully local** - All rendering happens on your device
+- **Works offline** - No internet required
+- **No AI processing** - Pure markdown rendering
+
+---
 
 ## Installation
+
+### For End Users
+
+**Download the latest release:**
+
+```bash
+# Download from GitHub Releases
+https://github.com/starfysh-tech/peekdown/releases/latest
+
+# Extract and drag to Applications folder
+# Launch once to register Quick Look extension
+```
+
+### For Developers
 
 ```bash
 git clone https://github.com/starfysh-tech/peekdown.git
@@ -19,46 +67,103 @@ yarn install
 yarn link
 ```
 
+---
+
 ## Usage
+
+### Quick Look (macOS 14+)
+
+1. Select any `.md` file in Finder
+2. Press **Spacebar**
+3. See beautifully rendered markdown
+
+### Command Line
 
 ```bash
 # View markdown file
-peekdown ./path/to/file.md
+peekdown ./README.md
 
 # Export to PDF
-peekdown ./path/to/file.md --pdf output.pdf
+peekdown ./README.md --pdf output.pdf
 
-# Uninstall Quick Look extension (with confirmation prompt)
+# Uninstall Quick Look extension
 peekdown --uninstall-quicklook
 
-# Uninstall Peekdown and Quick Look (with confirmation prompt)
+# Uninstall everything
 peekdown --uninstall-all
 ```
 
-## Quick Look (macOS 14+)
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Escape` | Close window |
+| `Cmd+W` | Close window |
+| `Cmd+Q` | Quit app |
+
+---
+
+## Quick Look Technical Details
 
 Peekdown bundles a Quick Look extension for rendering Markdown (including mermaid) in Finder previews.
 
+**Requirements:**
+- macOS 14+
+- Developer ID Application signature (included in releases)
+
+**Build from source:**
+
 ```bash
-# Build the helper app + extension
 yarn build:quicklook
 ```
 
 On first launch, Peekdown will prompt to move into `/Applications` or `~/Applications` and register the Quick Look extension.
-Quick Look extensions require a Developer ID Application signature to load outside of Xcode.
-For startup telemetry, launch with `PEEKDOWN_QL_DEBUG=1` or `--ql-debug` and check `~/Library/Application Support/Peekdown/quicklook-telemetry.json`.
-For Quick Look extension telemetry, enable `QLDebug` or use the debug flag file:
-`defaults write com.peekdown.app.quicklook-host.quicklook QLDebug -bool YES`
-or run Peekdown with `PEEKDOWN_QL_DEBUG=1` so it writes `quicklook-extension.debug`.
-Then open Quick Look and review `~/Library/Containers/com.peekdown.app.quicklook-host.quicklook/Data/Library/Caches/quicklook-extension.log`.
-To uninstall Quick Look, use `peekdown --uninstall-quicklook` or `Peekdown > Uninstall Quick Look…` from the app menu (when the UI window is open).
-To uninstall Peekdown entirely, run `peekdown --uninstall-all`.
 
-### Notarization
+**Debugging:**
 
-Set these values in `.env` before running `yarn build:mac` (API key or Apple ID):
+```bash
+# Enable telemetry
+peekdown --ql-debug
 
+# Check logs
+cat ~/Library/Application\ Support/Peekdown/quicklook-telemetry.json
+
+# Enable Quick Look extension debug
+defaults write com.peekdown.app.quicklook-host.quicklook QLDebug -bool YES
+
+# View extension logs
+cat ~/Library/Containers/com.peekdown.app.quicklook-host.quicklook/Data/Library/Caches/quicklook-extension.log
 ```
+
+---
+
+## Development
+
+### Build Commands
+
+```bash
+yarn start -- ./file.md                    # Launch with file
+yarn start -- ./file.md --pdf out.pdf      # Export to PDF
+yarn build                                 # Package with electron-builder
+yarn build:quicklook                       # Build Quick Look helper + extension
+yarn build:mac                             # Full macOS build with notarization
+```
+
+### Tech Stack
+
+- **Electron** - Cross-platform desktop framework
+- **markdown-it** - Markdown parser
+- **mermaid** - Diagram rendering (with ELK layout)
+- **highlight.js** - Code syntax highlighting
+- **DOMPurify** - HTML sanitization
+
+---
+
+## Notarization
+
+Set these values in `.env` before running `yarn build:mac`:
+
+```bash
 NOTARY_KEY_ID=...
 NOTARY_ISSUER_ID=...
 NOTARY_KEY_PATH=/absolute/path/to/AuthKey_XXXX.p8
@@ -67,21 +172,30 @@ NOTARY_APPLE_ID=...
 NOTARY_APP_PASSWORD=...
 ```
 
-## Keyboard Shortcuts
+---
 
-| Key | Action |
-|-----|--------|
-| Escape | Close window |
-| Cmd+W | Close window |
-| Cmd+Q | Quit app |
+## Security
 
-## Tech Stack
+- **`contextIsolation: true`** - Enabled
+- **`nodeIntegration: false`** - Disabled
+- **HTML sanitization** - All output sanitized with DOMPurify
+- **Mermaid security** - `securityLevel: 'strict'` (no click handlers)
 
-- Electron
-- markdown-it
-- mermaid
-- DOMPurify
+---
+
+## Contributing
+
+Issues and pull requests welcome! See [CLAUDE.md](CLAUDE.md) for development guidelines.
+
+---
+
+## License
+
+MIT © Starfysh
+
+---
 
 ## Roadmap
 
 - [ ] Homebrew formula for easier installation
+- [ ] Windows/Linux support (Electron app works, Quick Look is macOS-only)
