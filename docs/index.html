@@ -332,6 +332,68 @@
             font-size: 0.95rem;
         }
 
+        /* Privacy & Security Section */
+        .privacy-section {
+            padding: 6rem 0;
+            background: var(--bg-primary);
+        }
+
+        .privacy-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: var(--accent);
+            margin-bottom: 3rem;
+        }
+
+        .privacy-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .privacy-statement {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .privacy-statement p {
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .privacy-statement strong {
+            color: var(--accent);
+        }
+
+        .privacy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+        }
+
+        .privacy-item {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .privacy-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .privacy-item h4 {
+            font-size: 1.125rem;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+        }
+
+        .privacy-item p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
         /* Quick Start Section */
         .quick-start {
             padding: 6rem 0;
@@ -452,6 +514,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .privacy-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
             .comparison-container {
                 grid-template-columns: 1fr;
             }
@@ -464,6 +530,10 @@
         @media (max-width: 400px) {
             .hero h1 {
                 font-size: 2rem;
+            }
+
+            .privacy-grid {
+                grid-template-columns: 1fr;
             }
 
             .cta-buttons {
@@ -689,6 +759,40 @@ What makes peekdown special:
                     </svg>
                     <h3>Frontmatter Support</h3>
                     <p>YAML frontmatter shows up cleanly separated. Works great with Jekyll, Hugo, or any metadata setup.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Privacy & Security Section -->
+    <section class="privacy-section">
+        <div class="container">
+            <h2>Privacy & Security</h2>
+            <div class="privacy-content">
+                <div class="privacy-statement">
+                    <p>Peekdown is <strong>100% local and offline</strong>. Your markdown files never leave your machine.</p>
+                </div>
+                <div class="privacy-grid">
+                    <div class="privacy-item">
+                        <div class="privacy-icon">🔒</div>
+                        <h4>No Data Collection</h4>
+                        <p>Zero telemetry, analytics, or tracking. Your files are yours.</p>
+                    </div>
+                    <div class="privacy-item">
+                        <div class="privacy-icon">💻</div>
+                        <h4>Fully Local Processing</h4>
+                        <p>All rendering happens on your device. No cloud services.</p>
+                    </div>
+                    <div class="privacy-item">
+                        <div class="privacy-icon">✈️</div>
+                        <h4>Works Offline</h4>
+                        <p>No internet required. Works on planes, trains, anywhere.</p>
+                    </div>
+                    <div class="privacy-item">
+                        <div class="privacy-icon">🚫</div>
+                        <h4>No AI Processing</h4>
+                        <p>Pure markdown rendering. No content analysis or AI inference.</p>
+                    </div>
                 </div>
             </div>
         </div>
