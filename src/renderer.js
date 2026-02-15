@@ -109,6 +109,25 @@ async function rerender_mermaid_with_theme() {
   await render_mermaid();
 }
 
+// Parse frontmatter from markdown content
+function split_frontmatter(content) {
+  if (!content.startsWith('---')) {
+    return { frontmatter: null, body: content };
+  }
+
+  const lines = content.split('\n');
+  const end_index = lines.slice(1).findIndex(line => line.trim() === '---');
+
+  if (end_index === -1) {
+    return { frontmatter: null, body: content };
+  }
+
+  const frontmatter = lines.slice(1, end_index + 1).join('\n');
+  const body = lines.slice(end_index + 2).join('\n');
+
+  return { frontmatter, body };
+}
+
 // Render markdown content
 async function render_content(content) {
   const content_element = document.getElementById('content');
