@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, Menu, ipcMain, screen } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -76,22 +76,6 @@ if (show_version) {
 }
 
 const is_cli_mode = !!file_path || !!pdf_output || show_version || uninstall_quicklook_flag || uninstall_all_flag;
-
-// Read input file
-if (!file_path) {
-  if (is_cli_mode) {
-    error_message = 'No markdown file specified.\nUsage: markpane <file.md> [--pdf output.pdf]\nRun markpane --help for more options.';
-  }
-} else if (!fs.existsSync(file_path)) {
-  error_message = `File not found: ${file_path}`;
-} else {
-  try {
-    file_content = fs.readFileSync(file_path, 'utf-8');
-    display_name = path.basename(file_path);
-  } catch (err) {
-    error_message = `Failed to read file: ${err.message}`;
-  }
-}
 
 function get_app_bundle_path() {
   if (!is_mac || !is_packaged) {
@@ -241,6 +225,84 @@ function save_quicklook_state(state) {
   const state_path = path.join(app.getPath('userData'), 'quicklook.json');
   fs.mkdirSync(path.dirname(state_path), { recursive: true });
   fs.writeFileSync(state_path, JSON.stringify(state, null, 2));
+}
+
+function load_window_bounds() {
+  try {
+    const bounds_path = path.join(app.getPath('userData'), 'window-bounds.json');
+    if (!fs.existsSync(bounds_path)) {
+      return null;
+    }
+    const bounds = JSON.parse(fs.readFileSync(bounds_path, 'utf-8'));
+
+    // Validate bounds against connected displays
+    const displays = screen.getAllDisplays();
+    const is_visible = displays.some(display => {
+      const area = display.workArea;
+      return bounds.x >= area.x && bounds.y >= area.y &&
+             bounds.x + bounds.width <= area.x + area.width &&
+             bounds.y + bounds.height <= area.y + area.height;
+    });
+
+    return is_visible ? bounds : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function save_window_bounds(bounds) {
+  const bounds_path = path.join(app.getPath('userData'), 'window-bounds.json');
+  fs.mkdirSync(path.dirname(bounds_path), { recursive: true });
+  fs.writeFileSync(bounds_path, JSON.stringify(bounds, null, 2));
+}
+
+function normalize_file_path(fp) {
+  try {
+    return fs.realpathSync(path.resolve(fp));
+  } catch (err) {
+    return path.resolve(fp);
+  }
+}
+
+function load_recent_files() {
+  try {
+    const recent_path = path.join(app.getPath('userData'), 'recent-files.json');
+    if (!fs.existsSync(recent_path)) {
+      return [];
+    }
+    const files = JSON.parse(fs.readFileSync(recent_path, 'utf-8'));
+    return Array.isArray(files) ? files : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function save_recent_files(files) {
+  const recent_path = path.join(app.getPath('userData'), 'recent-files.json');
+  fs.mkdirSync(path.dirname(recent_path), { recursive: true });
+  fs.writeFileSync(recent_path, JSON.stringify(files, null, 2));
+}
+
+function add_recent_file(fp) {
+  const normalized = normalize_file_path(fp);
+  let recent = load_recent_files();
+
+  // Remove duplicates
+  recent = recent.filter(item => item.path !== normalized);
+
+  // Add to front
+  recent.unshift({
+    path: normalized,
+    display_name: path.basename(normalized),
+    last_opened: new Date().toISOString()
+  });
+
+  // Cap at 10
+  if (recent.length > 10) {
+    recent = recent.slice(0, 10);
+  }
+
+  save_recent_files(recent);
 }
 
 function remove_quicklook_state() {
@@ -554,13 +616,68 @@ async function maybe_handle_quicklook_setup() {
   return true;
 }
 
-function create_window() {
+function open_file(fp) {
+  const normalized_path = normalize_file_path(fp);
+
+  // Check if file is already open
+  const existing_window = BrowserWindow.getAllWindows().find(
+    win => win.markpane_file_path === normalized_path
+  );
+
+  if (existing_window) {
+    existing_window.focus();
+    return;
+  }
+
+  create_window(normalized_path);
+  add_recent_file(normalized_path);
+}
+
+function create_window(target_file_path) {
   const is_pdf_mode = !!pdf_output;
 
-  main_window = new BrowserWindow({
-    width: 900,
-    height: 700,
-    show: false,  // Don't show until ready
+  // Read file for this window
+  let local_file_content = null;
+  let local_error_message = null;
+  let local_display_name = 'MarkPane';
+
+  if (target_file_path) {
+    const normalized_path = normalize_file_path(target_file_path);
+    if (!fs.existsSync(normalized_path)) {
+      local_error_message = `File not found: ${normalized_path}`;
+    } else {
+      try {
+        local_file_content = fs.readFileSync(normalized_path, 'utf-8');
+        local_display_name = path.basename(normalized_path);
+      } catch (err) {
+        local_error_message = `Failed to read file: ${err.message}`;
+      }
+    }
+  }
+
+  // Load saved bounds or use defaults
+  const saved_bounds = load_window_bounds();
+  const default_bounds = { width: 900, height: 700 };
+
+  // Cascade position for additional windows
+  const existing_windows = BrowserWindow.getAllWindows().length;
+  const cascade_offset = existing_windows * 22;
+
+  const bounds = saved_bounds
+    ? {
+        x: saved_bounds.x + cascade_offset,
+        y: saved_bounds.y + cascade_offset,
+        width: saved_bounds.width,
+        height: saved_bounds.height
+      }
+    : {
+        width: default_bounds.width,
+        height: default_bounds.height
+      };
+
+  const win = new BrowserWindow({
+    ...bounds,
+    show: false,
     titleBarStyle: is_pdf_mode ? 'default' : 'hiddenInset',
     webPreferences: {
       contextIsolation: true,
@@ -569,38 +686,45 @@ function create_window() {
     }
   });
 
-  main_window.loadFile(path.join(__dirname, 'index.html'));
-  main_window.setTitle(display_name);
+  // Store file path on window
+  if (target_file_path) {
+    win.markpane_file_path = normalize_file_path(target_file_path);
+  }
 
-  // Show window immediately when ready (no fade-in)
+  // Set main_window reference (for backward compatibility during transition)
+  main_window = win;
+
+  win.loadFile(path.join(__dirname, 'index.html'));
+  win.setTitle(local_display_name);
+
+  // Show window immediately when ready
   if (!is_pdf_mode) {
-    main_window.once('ready-to-show', () => {
-      main_window.show();
+    win.once('ready-to-show', () => {
+      win.show();
     });
   }
 
   // Forward renderer console to main process
-  main_window.webContents.on('console-message', (event, level, message) => {
+  win.webContents.on('console-message', (event, level, message) => {
     console.log(`[Renderer] ${message}`);
   });
 
-  main_window.webContents.on('did-finish-load', () => {
-    if (error_message) {
+  win.webContents.on('did-finish-load', () => {
+    if (local_error_message) {
       if (is_pdf_mode) {
-        console.error(error_message);
+        console.error(local_error_message);
         app.quit();
       } else {
-        main_window.webContents.send('error', error_message);
-        dialog.showErrorBox('Error', error_message);
+        win.webContents.send('error', local_error_message);
+        dialog.showErrorBox('Error', local_error_message);
       }
-    } else if (file_content) {
-      main_window.webContents.send('file-content', file_content, display_name, is_pdf_mode);
+    } else if (local_file_content) {
+      win.webContents.send('file-content', local_file_content, local_display_name, is_pdf_mode);
 
       if (is_pdf_mode) {
-        // Wait for mermaid diagrams to render (ELK renderer is slow)
         setTimeout(async () => {
           try {
-            const pdf_data = await main_window.webContents.printToPDF({
+            const pdf_data = await win.webContents.printToPDF({
               printBackground: true,
               pageSize: 'Letter',
               margins: {
@@ -619,56 +743,155 @@ function create_window() {
             console.error(`Failed to generate PDF: ${err.message}`);
             app.quit();
           }
-        }, 5000);  // 5 second delay for ELK mermaid rendering
+        }, 5000);
       }
     }
   });
 
-  // Only register shortcuts in UI mode
+  // Debounced bounds persistence
   if (!is_pdf_mode) {
-    globalShortcut.register('Escape', () => {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.close();
-      }
-    });
+    let save_timeout;
+    const debounced_save = () => {
+      clearTimeout(save_timeout);
+      save_timeout = setTimeout(() => {
+        const bounds = win.getBounds();
+        save_window_bounds(bounds);
+      }, 500);
+    };
 
-    globalShortcut.register('CommandOrControl+W', () => {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.close();
-      }
-    });
+    win.on('move', debounced_save);
+    win.on('resize', debounced_save);
 
-    globalShortcut.register('CommandOrControl+Shift+O', () => {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.webContents.send('toggle-toc');
+    // Escape key handler (per-window)
+    win.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'Escape' && input.type === 'keyDown') {
+        win.close();
       }
     });
   }
 
-  main_window.on('closed', () => {
-    main_window = null;
+  win.on('closed', () => {
+    if (main_window === win) {
+      main_window = null;
+    }
   });
+}
+
+function rebuild_app_menu() {
+  if (!is_mac || !!pdf_output) {
+    return;
+  }
+
+  const recent_files = load_recent_files();
+  const recent_submenu = recent_files.length > 0
+    ? recent_files.map(item => ({
+        label: item.display_name,
+        click: () => open_file(item.path)
+      }))
+    : [{ label: 'No Recent Files', enabled: false }];
+
+  const template = [
+    {
+      label: app.name,
+      submenu: [
+        {
+          label: 'Uninstall Quick Look…',
+          click: uninstall_quicklook
+        },
+        {
+          label: 'Uninstall MarkPane…',
+          click: uninstall_all
+        },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open File…',
+          accelerator: 'CommandOrControl+O',
+          click: async () => {
+            const result = await dialog.showOpenDialog({
+              properties: ['openFile'],
+              filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
+            });
+            if (!result.canceled && result.filePaths.length > 0) {
+              open_file(result.filePaths[0]);
+            }
+          }
+        },
+        {
+          label: 'Open Recent',
+          submenu: recent_submenu
+        },
+        { type: 'separator' },
+        {
+          role: 'close',
+          label: 'Close',
+          accelerator: 'CommandOrControl+W'
+        }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle Table of Contents',
+          accelerator: 'CommandOrControl+Shift+O',
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused && !focused.isDestroyed()) {
+              focused.webContents.send('toggle-toc');
+            }
+          }
+        },
+        {
+          label: 'Find in Page',
+          accelerator: 'CommandOrControl+F',
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused && !focused.isDestroyed()) {
+              focused.webContents.send('show-find');
+            }
+          }
+        }
+      ]
+    },
+    {
+      role: 'windowMenu'
+    }
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 // Find-in-page IPC handlers
 ipcMain.on('find-text', (event, query) => {
-  if (!main_window || main_window.isDestroyed()) return;
-
-  main_window.webContents.findInPage(query, { findNext: true });
+  event.sender.findInPage(query, { findNext: true });
 });
 
 ipcMain.on('stop-find', (event, action) => {
-  if (!main_window || main_window.isDestroyed()) return;
-
-  main_window.webContents.stopFindInPage(action || 'clearSelection');
+  event.sender.stopFindInPage(action || 'clearSelection');
 });
 
 // Forward found-in-page events to renderer
 app.on('web-contents-created', (event, contents) => {
   contents.on('found-in-page', (event, result) => {
-    if (!main_window || main_window.isDestroyed()) return;
-
-    main_window.webContents.send('found-in-page', result);
+    contents.send('found-in-page', result);
   });
 });
 
@@ -684,69 +907,57 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
+
   const handled_quicklook = await maybe_handle_quicklook_setup();
   if (handled_quicklook) {
     return;
   }
 
-  if (is_mac && !is_cli_mode) {
-    const template = [
-      {
-        label: app.name,
-        submenu: [
-          {
-            label: 'Uninstall Quick Look…',
-            click: uninstall_quicklook
-          },
-          {
-            label: 'Uninstall MarkPane…',
-            click: uninstall_all
-          },
-          { type: 'separator' },
-          { role: 'quit' }
-        ]
-      },
-      {
-        label: 'View',
-        submenu: [
-          {
-            label: 'Toggle Table of Contents',
-            accelerator: 'CommandOrControl+Shift+O',
-            click: () => {
-              if (main_window && !main_window.isDestroyed()) {
-                main_window.webContents.send('toggle-toc');
-              }
-            }
-          },
-          {
-            label: 'Find in Page',
-            accelerator: 'CommandOrControl+F',
-            click: () => {
-              if (main_window && !main_window.isDestroyed()) {
-                main_window.webContents.send('show-find');
-              }
-            }
-          }
-        ]
-      }
-    ];
-    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-  }
+  rebuild_app_menu();
 
-  create_window();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      create_window();
+  if (file_path) {
+    create_window(file_path);
+    if (!pdf_output) {
+      add_recent_file(file_path);
     }
-  });
+  } else if (!is_cli_mode) {
+    create_window(null);
+  }
 });
 
+// macOS: stay alive when all windows closed
 app.on('window-all-closed', () => {
-  globalShortcut.unregisterAll();
-  app.quit();
+  if (!is_mac) {
+    app.quit();
+  }
 });
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
+// macOS: re-open window when dock icon clicked
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    const recent_files = load_recent_files();
+    if (recent_files.length > 0) {
+      open_file(recent_files[0].path);
+    } else {
+      // Fallback: show open dialog
+      dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
+      }).then(result => {
+        if (!result.canceled && result.filePaths.length > 0) {
+          open_file(result.filePaths[0]);
+        }
+      });
+    }
+  }
+});
+
+// macOS: handle files opened from Finder/dock
+app.on('open-file', (event, path) => {
+  event.preventDefault();
+  if (app.isReady()) {
+    open_file(path);
+  } else {
+    app.whenReady().then(() => open_file(path));
+  }
 });

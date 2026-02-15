@@ -25,14 +25,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   onFoundInPage: (callback) => {
-    ipcRenderer.removeAllListeners('found-in-page');
-    ipcRenderer.on('found-in-page', (_event, result) => {
+    const handler = (_event, result) => {
       callback(result);
-    });
+    };
+    ipcRenderer.on('found-in-page', handler);
+    // Return cleanup function for caller to use if needed
+    return () => ipcRenderer.removeListener('found-in-page', handler);
   },
 
   onToggleToc: (callback) => {
     ipcRenderer.on('toggle-toc', () => {
+      callback();
+    });
+  },
+
+  onShowFind: (callback) => {
+    ipcRenderer.on('show-find', () => {
       callback();
     });
   }
