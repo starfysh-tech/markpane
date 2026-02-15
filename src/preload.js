@@ -29,5 +29,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('found-in-page', (_event, result) => {
       callback(result);
     });
+  },
+
+  onToggleToc: (callback) => {
+    ipcRenderer.on('toggle-toc', () => {
+      callback();
+    });
   }
 });

@@ -637,6 +637,12 @@ function create_window() {
         main_window.close();
       }
     });
+
+    globalShortcut.register('CommandOrControl+Shift+O', () => {
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.webContents.send('toggle-toc');
+      }
+    });
   }
 
   main_window.on('closed', () => {
@@ -698,6 +704,29 @@ app.whenReady().then(async () => {
           },
           { type: 'separator' },
           { role: 'quit' }
+        ]
+      },
+      {
+        label: 'View',
+        submenu: [
+          {
+            label: 'Toggle Table of Contents',
+            accelerator: 'CommandOrControl+Shift+O',
+            click: () => {
+              if (main_window && !main_window.isDestroyed()) {
+                main_window.webContents.send('toggle-toc');
+              }
+            }
+          },
+          {
+            label: 'Find in Page',
+            accelerator: 'CommandOrControl+F',
+            click: () => {
+              if (main_window && !main_window.isDestroyed()) {
+                main_window.webContents.send('show-find');
+              }
+            }
+          }
         ]
       }
     ];

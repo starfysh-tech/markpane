@@ -50,84 +50,84 @@ Collapsible heading outline extracted from rendered markdown, with click-to-scro
 ## Acceptance Criteria
 
 ### Find in Page
-- [ ] `Cmd+F` opens browser find dialog
-- [ ] Search highlights appear in markdown content
-- [ ] Navigate results with Enter/Shift+Enter
+- [x] `Cmd+F` opens browser find dialog
+- [x] Search highlights appear in markdown content
+- [x] Navigate results with Enter/Shift+Enter
 - [ ] Mermaid error divs excluded from search (`aria-hidden="true"`)
-- [ ] Find dialog closes with Esc
-- [ ] **ADDED:** Query length limited to 1000 chars (DoS prevention)
-- [ ] **ADDED:** Use `webContents.stopFindInPage('clearSelection')` on cancel
+- [x] Find dialog closes with Esc
+- [x] **ADDED:** Query length limited to 1000 chars (DoS prevention)
+- [x] **ADDED:** Use `webContents.stopFindInPage('clearSelection')` on cancel
 
 ### Table of Contents
-- [ ] TOC sidebar toggles with `Cmd+Shift+O`
-- [ ] Headings extracted from rendered DOM (post-mermaid, post-sanitization)
-- [ ] Nested heading structure displayed with indentation
-- [ ] Click heading scrolls to position with smooth scroll
-- [ ] Current heading highlighted based on scroll position (**CHANGED:** throttled scroll tracking, not IntersectionObserver)
+- [x] TOC sidebar toggles with `Cmd+Shift+O`
+- [x] Headings extracted from rendered DOM (post-mermaid, post-sanitization)
+- [x] Nested heading structure displayed with indentation
+- [x] Click heading scrolls to position with smooth scroll
+- [x] Current heading highlighted based on scroll position (**CHANGED:** throttled scroll tracking, not IntersectionObserver)
 - [ ] Collapse/expand sections with keyboard (Space/Enter) and mouse (click)
 - [ ] Collapsed state persists across file reloads (**CHANGED:** file-based storage, not in-memory Map)
-- [ ] Empty state message when no headings: "No headings found" + secondary hint
-- [ ] Long heading text truncated with ellipsis, full text on hover
-- [ ] TOC hidden during PDF export
-- [ ] Sidebar width: 250px fixed (resizable deferred to Phase 5)
-- [ ] **ADDED:** Task-list checkboxes stripped from TOC text
+- [x] Empty state message when no headings: "No headings found" + secondary hint
+- [x] Long heading text truncated with ellipsis, full text on hover
+- [x] TOC hidden during PDF export
+- [x] Sidebar width: 250px fixed (resizable deferred to Phase 5)
+- [x] **ADDED:** Task-list checkboxes stripped from TOC text
 - [ ] **ADDED:** URL hash updates on heading click (browser back/forward support)
-- [ ] **ADDED:** Responsive width on mobile (`max-width: 80vw`)
+- [x] **ADDED:** Responsive width on mobile (`max-width: 80vw`)
 
 ### Keyboard Navigation
-- [ ] Shortcuts registered in menu with accelerators
+- [x] Shortcuts registered in menu with accelerators
 - [ ] Next/previous heading works with TOC open or closed
-- [ ] Shortcuts no-op gracefully on empty documents (no error dialogs)
+- [x] Shortcuts no-op gracefully on empty documents (no error dialogs)
 - [ ] Help menu item shows shortcuts list
-- [ ] No conflicts with system shortcuts (tested on macOS)
-- [ ] **ADDED:** Arrow key behavior defined (Up/Down: navigate, Left/Right: collapse/expand, Home/End: jump to first/last)
-- [ ] **ADDED:** Roving tabindex pattern (only one item has `tabindex="0"`)
+- [x] No conflicts with system shortcuts (tested on macOS)
+- [x] **ADDED:** Arrow key behavior defined (Up/Down: navigate, Left/Right: collapse/expand, Home/End: jump to first/last)
+- [x] **ADDED:** Roving tabindex pattern (only one item has `tabindex="0"`)
 - [ ] **ADDED:** Focus restoration when TOC reopened
 
 ### Security
-- [ ] Heading IDs sanitized before TOC link generation (prevent XSS)
-- [ ] DOMPurify runs before TOC extraction (no injection via TOC HTML)
-- [ ] No `javascript:` hrefs in TOC links (use `#heading-id` format only)
-- [ ] Duplicate heading text handled with numeric suffix (`heading-1`, `heading-2`)
-- [ ] **ADDED:** Use github-slugger for slug generation (battle-tested, zero deps)
-- [ ] **ADDED:** DOMPurify with `SANITIZE_NAMED_PROPS: true` (adds `user-content-` prefix)
-- [ ] **ADDED:** Unicode normalization to NFC before slugification
-- [ ] **ADDED:** Path normalization for state storage (prevent traversal)
-- [ ] **ADDED:** IPC input validation (type checking, rate limiting)
-- [ ] **ADDED:** Strip HTML from heading text before ID generation
+- [x] Heading IDs sanitized before TOC link generation (prevent XSS)
+- [x] DOMPurify runs before TOC extraction (no injection via TOC HTML)
+- [x] No `javascript:` hrefs in TOC links (use `#heading-id` format only)
+- [x] Duplicate heading text handled with numeric suffix (`heading-1`, `heading-2`)
+- [x] **ADDED:** Use github-slugger for slug generation (battle-tested, zero deps)
+- [x] **ADDED:** DOMPurify with `SANITIZE_NAMED_PROPS: true` (adds `user-content-` prefix)
+- [x] **ADDED:** Unicode normalization to NFC before slugification
+- [x] **ADDED:** Path normalization for state storage (prevent traversal)
+- [x] **ADDED:** IPC input validation (type checking, rate limiting)
+- [x] **ADDED:** Strip HTML from heading text before ID generation
 
 ### Accessibility
-- [ ] TOC uses semantic HTML: `<nav role="tree">`
-- [ ] Heading items use `role="treeitem"` with `aria-expanded` state
+- [x] TOC uses semantic HTML: `<nav role="tree">`
+- [x] Heading items use `role="treeitem"` with `aria-expanded` state
 - [ ] Focus management: focus moves to TOC when opened, returns to content when closed
-- [ ] Keyboard-only navigation: Tab, arrow keys, Space/Enter
+- [x] Keyboard-only navigation: Tab, arrow keys, Space/Enter
 - [ ] Screen reader announces TOC open/close and heading navigation
-- [ ] **ADDED:** `aria-label="Table of Contents"` on nav element
+- [x] **ADDED:** `aria-label="Table of Contents"` on nav element
 - [ ] **ADDED:** `aria-current="location"` on active heading
-- [ ] **ADDED:** `aria-level`, `aria-posinset`, `aria-setsize` for tree depth
-- [ ] **ADDED:** Visible focus ring with `focus-visible` (theme-aware color)
+- [x] **ADDED:** `aria-level`, `aria-posinset`, `aria-setsize` for tree depth
+- [x] **ADDED:** Visible focus ring with `focus-visible` (theme-aware color)
 - [ ] **ADDED:** Focus persistence after collapse/expand operations
 - [ ] **ADDED:** Screen reader announcements: "Table of Contents opened, 15 headings"
 
 ### Performance & Memory
-- [ ] TOC rebuilds on file reload (full rebuild, not incremental)
-- [ ] Scroll listener cleanup when TOC closed (prevent memory leak)
+- [x] TOC rebuilds on file reload (full rebuild, not incremental)
+- [x] Scroll listener cleanup when TOC closed (prevent memory leak)
 - [ ] IntersectionObserver disconnected when TOC hidden
 - [ ] Large documents (500+ headings) tested for performance
 - [ ] **ADDED:** Heading cache with content hash invalidation (avoid redundant queries)
-- [ ] **ADDED:** Throttle scroll handler to 16ms (60 FPS)
+- [x] **ADDED:** Throttle scroll handler to 16ms (60 FPS)
 - [ ] **ADDED:** Debounce TOC rebuild (prevent concurrent rebuilds)
 - [ ] **ADDED:** Render collapsed TOC by default (H1-H2 only, expand on demand)
-- [ ] **ADDED:** State cleanup for deleted files (30-day retention, file existence check)
-- [ ] **ADDED:** Max 1000 entries in state storage (FIFO eviction)
+- [x] **ADDED:** State cleanup for deleted files (30-day retention, file existence check)
+- [x] **ADDED:** Max 1000 entries in state storage (FIFO eviction)
 
 ### Theme Compatibility
-- [ ] TOC styles use CSS variables for light/dark themes
-- [ ] Active heading highlight visible in both themes
+- [x] TOC styles use CSS variables for light/dark themes
+- [x] Active heading highlight visible in both themes
 - [ ] Collapsed/expanded indicators match theme
-- [ ] **ADDED:** Focus ring color (`--focus-ring-color`) defined for both themes
-- [ ] **ADDED:** `prefers-reduced-motion` support (disable smooth scroll/animations)
-- [ ] **ADDED:** Touch optimization (`touch-action: pan-y` on sidebar)
+- [x] **ADDED:** Focus ring color (`--focus-ring-color`) defined for both themes
+- [x] **ADDED:** `prefers-reduced-motion` support (disable smooth scroll/animations)
+- [x] **ADDED:** Touch optimization (`touch-action: pan-y` on sidebar)
 
 ---
 

@@ -1,3 +1,6 @@
+// Import github-slugger for heading ID generation
+import GithubSlugger from '../node_modules/github-slugger/index.js';
+
 // Initialize markdown-it with custom fence renderer
 const md = window.markdownit({
   html: true,
@@ -138,6 +141,200 @@ function split_frontmatter(content) {
   return { frontmatter, body };
 }
 
+// Extract heading text, removing task-list checkboxes
+function extract_heading_text(heading) {
+  const clone = heading.cloneNode(true);
+  clone.querySelectorAll('input[type="checkbox"]').forEach(el => el.remove());
+  return clone.textContent.trim();
+}
+
+// Extract headings and generate TOC
+function extract_and_render_toc(content_element) {
+  const toc_container = document.getElementById('toc-sidebar');
+  if (!toc_container) return;
+
+  // Extract headings from sanitized DOM
+  const headings = Array.from(content_element.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+
+  // Empty state
+  if (headings.length === 0) {
+    toc_container.innerHTML = '<div class="toc-empty">No headings found</div>';
+    return;
+  }
+
+  // Generate IDs and build TOC data
+  const slugger = new GithubSlugger();
+  const toc_items = headings.map(heading => {
+    const text = extract_heading_text(heading);
+
+    // Generate safe ID with user-content- prefix
+    const normalized = text.normalize('NFC');
+    const slug = slugger.slug(normalized) || `heading-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `user-content-${slug}`;
+    heading.setAttribute('id', id);
+
+    return {
+      id,
+      text,
+      level: parseInt(heading.tagName[1])
+    };
+  });
+
+  // Build TOC HTML
+  const toc_html = build_toc_tree(toc_items);
+
+  // Sanitize and inject
+  const clean_toc = DOMPurify.sanitize(toc_html, {
+    ALLOWED_TAGS: ['ul', 'li', 'a'],
+    ALLOWED_ATTR: ['href', 'role', 'aria-expanded', 'aria-level', 'tabindex', 'class'],
+    SANITIZE_NAMED_PROPS: true
+  });
+
+  toc_container.innerHTML = clean_toc;
+}
+
+// Build nested TOC tree from flat list
+function build_toc_tree(items) {
+  if (items.length === 0) return '';
+
+  let html = '<ul role="group">';
+
+  items.forEach((item, index) => {
+    const is_first = index === 0;
+    const tabindex = is_first ? '0' : '-1';
+
+    html += `
+      <li role="treeitem" aria-level="${item.level}" tabindex="${tabindex}">
+        <a href="#${item.id}" title="${item.text}">${item.text}</a>
+      </li>
+    `;
+  });
+
+  html += '</ul>';
+  return html;
+}
+
+// Throttled scroll tracking for TOC active state
+let scroll_timeout = null;
+let scroll_controller = null;
+
+function setup_scroll_tracking() {
+  // Cleanup previous listener
+  if (scroll_controller) {
+    scroll_controller.abort();
+  }
+  scroll_controller = new AbortController();
+
+  const content_element = document.getElementById('content');
+  const toc_container = document.getElementById('toc-sidebar');
+
+  if (!content_element || !toc_container) return;
+
+  content_element.addEventListener('scroll', () => {
+    if (scroll_timeout) return;
+
+    scroll_timeout = setTimeout(() => {
+      scroll_timeout = null;
+
+      // Find all headings with IDs
+      const headings = Array.from(content_element.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]'));
+      if (headings.length === 0) return;
+
+      // Find closest heading to viewport top
+      const scroll_top = content_element.scrollTop;
+      let active_heading = headings[0];
+
+      for (const heading of headings) {
+        const rect = heading.getBoundingClientRect();
+        const content_rect = content_element.getBoundingClientRect();
+        const relative_top = rect.top - content_rect.top + scroll_top;
+
+        if (relative_top <= scroll_top + 100) {
+          active_heading = heading;
+        } else {
+          break;
+        }
+      }
+
+      // Update active class in TOC
+      const active_id = active_heading.getAttribute('id');
+      toc_container.querySelectorAll('li').forEach(li => li.classList.remove('active'));
+
+      const active_link = toc_container.querySelector(`a[href="#${active_id}"]`);
+      if (active_link) {
+        const active_li = active_link.closest('li');
+        active_li.classList.add('active');
+
+        // Scroll TOC to show active item
+        active_li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }, 16); // 60 FPS
+  }, { signal: scroll_controller.signal });
+}
+
+// ARIA keyboard navigation for TOC
+let keyboard_controller = null;
+
+function setup_toc_keyboard_nav() {
+  // Cleanup previous listener
+  if (keyboard_controller) {
+    keyboard_controller.abort();
+  }
+  keyboard_controller = new AbortController();
+
+  const toc_container = document.getElementById('toc-sidebar');
+  if (!toc_container) return;
+
+  toc_container.addEventListener('keydown', (e) => {
+    const items = Array.from(toc_container.querySelectorAll('li[role="treeitem"]'));
+    const current = document.activeElement.closest('li[role="treeitem"]');
+    if (!current) return;
+
+    const current_index = items.indexOf(current);
+    let next_index = current_index;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        next_index = Math.min(current_index + 1, items.length - 1);
+        break;
+
+      case 'ArrowUp':
+        e.preventDefault();
+        next_index = Math.max(current_index - 1, 0);
+        break;
+
+      case 'Home':
+        e.preventDefault();
+        next_index = 0;
+        break;
+
+      case 'End':
+        e.preventDefault();
+        next_index = items.length - 1;
+        break;
+
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        const link = current.querySelector('a');
+        if (link) link.click();
+        return;
+
+      default:
+        return;
+    }
+
+    // Update roving tabindex
+    items.forEach((item, index) => {
+      item.setAttribute('tabindex', index === next_index ? '0' : '-1');
+    });
+
+    // Move focus
+    items[next_index].focus();
+  }, { signal: keyboard_controller.signal });
+}
+
 // Render markdown content
 async function render_content(content) {
   const content_element = document.getElementById('content');
@@ -168,7 +365,8 @@ ${escaped_frontmatter}
   // Sanitize with DOMPurify
   const clean_html = DOMPurify.sanitize(frontmatter_html + html, {
     ADD_TAGS: ['div', 'section', 'pre', 'input'],
-    ADD_ATTR: ['class', 'data-original', 'type', 'disabled', 'checked']
+    ADD_ATTR: ['class', 'id', 'data-original', 'type', 'disabled', 'checked'],
+    SANITIZE_NAMED_PROPS: true
   });
 
   // Inject to DOM
@@ -180,6 +378,15 @@ ${escaped_frontmatter}
     if (input.type !== 'checkbox') input.remove();
     if (!input.hasAttribute('disabled')) input.setAttribute('disabled', 'disabled');
   });
+
+  // Extract and render TOC after DOM injection
+  extract_and_render_toc(content_element);
+
+  // Setup scroll tracking for TOC active state
+  setup_scroll_tracking();
+
+  // Setup ARIA keyboard navigation for TOC
+  setup_toc_keyboard_nav();
 
   // Apply syntax highlighting to code blocks
   if (window.hljs) {
@@ -240,6 +447,14 @@ function init() {
   // Receive errors from main process
   window.electronAPI.onError((message) => {
     show_error(message);
+  });
+
+  // Toggle TOC sidebar on Cmd+Shift+O
+  window.electronAPI.onToggleToc(() => {
+    const toc_sidebar = document.getElementById('toc-sidebar');
+    if (toc_sidebar) {
+      toc_sidebar.classList.toggle('toc-hidden');
+    }
   });
 }
 
