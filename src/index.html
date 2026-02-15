@@ -16,16 +16,21 @@
   </div>
   <div class="titlebar-spacer">
     <div class="titlebar-traffic-spacer"></div>
+    <button id="toc-toggle" aria-label="Toggle Table of Contents" title="Toggle TOC (⌘⇧O)">☰</button>
     <span id="filename"></span>
     <span id="pin-indicator" title="Always on top (Cmd+Shift+A)">📌</span>
   </div>
-  <div id="content" class="markdown-body"></div>
+  <div id="app-container">
+    <nav id="toc-sidebar" role="tree" aria-label="Table of Contents"></nav>
+    <div id="content" class="markdown-body"></div>
+  </div>
 
   <script src="../node_modules/markdown-it/dist/markdown-it.min.js"></script>
   <script src="../node_modules/markdown-it-task-lists/dist/markdown-it-task-lists.min.js"></script>
   <script src="../node_modules/mermaid/dist/mermaid.min.js"></script>
   <script src="../node_modules/dompurify/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script src="../node_modules/github-slugger/dist/index.umd.js"></script>
   <script type="module" src="renderer.js"></script>
 </body>
 </html>

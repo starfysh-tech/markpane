@@ -40,5 +40,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('always-on-top-changed', (_event, is_pinned) => {
       callback(is_pinned);
     });
+  },
+
+  onToggleToc: (callback) => {
+    ipcRenderer.removeAllListeners('toggle-toc');
+    ipcRenderer.on('toggle-toc', () => {
+      callback();
+    });
   }
 });

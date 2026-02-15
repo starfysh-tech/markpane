@@ -846,6 +846,18 @@ app.whenReady().then(async () => {
       });
     }
 
+    // View menu (all platforms)
+    template.push({
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle Table of Contents',
+          accelerator: 'CommandOrControl+Shift+O',
+          click: () => send_to_renderer('toggle-toc')
+        }
+      ]
+    });
+
     // Window menu (all platforms)
     template.push({
       label: 'Window',
@@ -860,6 +872,7 @@ app.whenReady().then(async () => {
         }
       ]
     });
+
 
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   }

@@ -1,3 +1,6 @@
+// Direct path required: Electron's <script type="module"> doesn't support bare specifiers
+import GithubSlugger from '../node_modules/github-slugger/index.js';
+
 // Render guard to prevent concurrent renders
 let render_active = false;
 let render_pending = null;
@@ -18,6 +21,12 @@ if (window.markdownitTaskLists) {
 
 // Enable strikethrough support
 md.enable('strikethrough');
+
+// Module-level cache for scroll tracking
+let cached_headings = [];  // { element, offset_top, id }
+let active_toc_li = null;
+let raf_pending = false;
+let resize_timer = null;
 
 // Store default fence renderer
 const default_fence = md.renderer.rules.fence.bind(md.renderer.rules);
@@ -142,6 +151,221 @@ function split_frontmatter(content) {
   return { frontmatter, body };
 }
 
+// Extract heading text, removing task-list checkboxes
+function extract_heading_text(heading) {
+  const clone = heading.cloneNode(true);
+  clone.querySelectorAll('input[type="checkbox"]').forEach(el => el.remove());
+  return clone.textContent.trim();
+}
+
+// Escape HTML for safe injection
+function escape_html(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+// Extract headings and generate TOC
+function extract_and_render_toc(content_element) {
+  active_toc_li = null;
+  const toc_container = document.getElementById('toc-sidebar');
+  if (!toc_container) {
+    console.error('TOC container not found');
+    return;
+  }
+
+  // Extract headings from sanitized DOM
+  const headings = Array.from(content_element.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+
+  // Empty state
+  if (headings.length === 0) {
+    toc_container.innerHTML = '<div class="toc-empty">No headings found</div>';
+    return;
+  }
+
+  // Generate IDs and build TOC data
+  const slugger = new GithubSlugger();
+  const toc_items = headings.map(heading => {
+    const text = extract_heading_text(heading);
+
+    // Generate safe ID with user-content- prefix
+    const normalized = text.normalize('NFC');
+    const slug = slugger.slug(normalized) || `heading-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `user-content-${slug}`;
+    heading.setAttribute('id', id);
+
+    return {
+      id,
+      text,
+      level: parseInt(heading.tagName[1])
+    };
+  });
+
+  // Build TOC HTML
+  const toc_html = '<ul role="group">' + toc_items.map((item, index) =>
+    `<li role="treeitem" aria-level="${item.level}" tabindex="${index === 0 ? '0' : '-1'}">` +
+    `<a href="#${item.id}" title="${escape_html(item.text)}">${escape_html(item.text)}</a></li>`
+  ).join('') + '</ul>';
+
+  // Sanitize and inject
+  const clean_toc = DOMPurify.sanitize(toc_html, {
+    ALLOWED_TAGS: ['ul', 'li', 'a'],
+    ALLOWED_ATTR: ['href', 'role', 'aria-level', 'tabindex', 'class', 'title'],
+    SANITIZE_NAMED_PROPS: true
+  });
+
+  toc_container.innerHTML = clean_toc;
+
+  // Cache heading positions for scroll tracking
+  cached_headings = toc_items.map(item => ({
+    element: content_element.querySelector(`#${CSS.escape(item.id)}`),
+    offset_top: 0,
+    id: item.id
+  })).filter(h => h.element !== null);
+}
+
+// Invalidate heading position cache
+function invalidate_heading_cache() {
+  const content_el = document.getElementById('content');
+  if (!content_el) return;
+  const container_offset = content_el.offsetTop;
+  for (const entry of cached_headings) {
+    entry.offset_top = entry.element.offsetTop - container_offset;
+  }
+}
+
+// Throttled scroll tracking for TOC active state
+let scroll_controller = null;
+
+function setup_scroll_tracking() {
+  // Cleanup previous listener
+  if (scroll_controller) {
+    scroll_controller.abort();
+  }
+  clearTimeout(resize_timer);
+  scroll_controller = new AbortController();
+
+  const content_element = document.getElementById('content');
+  const toc_container = document.getElementById('toc-sidebar');
+
+  if (!content_element || !toc_container) {
+    console.error('Scroll tracking setup failed: missing content or TOC element');
+    return;
+  }
+
+  function update_active_heading() {
+    raf_pending = false;
+
+    if (cached_headings.length === 0) return;
+
+    // Find closest heading to viewport top
+    const scroll_top = content_element.scrollTop;
+    let active_id = cached_headings[0].id;
+
+    for (const heading of cached_headings) {
+      if (heading.offset_top <= scroll_top + 100) {
+        active_id = heading.id;
+      } else {
+        break;
+      }
+    }
+
+    // Update active class in TOC - only toggle 2 elements
+    const new_active_link = toc_container.querySelector(`a[href="#${CSS.escape(active_id)}"]`);
+    if (new_active_link) {
+      const new_active_li = new_active_link.closest('li');
+      if (new_active_li !== active_toc_li) {
+        if (active_toc_li) {
+          active_toc_li.classList.remove('active');
+        }
+        new_active_li.classList.add('active');
+        active_toc_li = new_active_li;
+
+        // Scroll TOC to show active item
+        active_toc_li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }
+
+  content_element.addEventListener('scroll', () => {
+    if (!raf_pending) {
+      raf_pending = true;
+      requestAnimationFrame(update_active_heading);
+    }
+  }, { signal: scroll_controller.signal });
+
+  // Invalidate cache on window resize (debounced)
+  window.addEventListener('resize', () => {
+    clearTimeout(resize_timer);
+    resize_timer = setTimeout(invalidate_heading_cache, 150);
+  }, { signal: scroll_controller.signal });
+}
+
+// ARIA keyboard navigation for TOC
+let keyboard_controller = null;
+
+function setup_toc_keyboard_nav() {
+  // Cleanup previous listener
+  if (keyboard_controller) {
+    keyboard_controller.abort();
+  }
+  keyboard_controller = new AbortController();
+
+  const toc_container = document.getElementById('toc-sidebar');
+  if (!toc_container) {
+    console.error('TOC keyboard navigation setup failed: TOC container not found');
+    return;
+  }
+
+  toc_container.addEventListener('keydown', (e) => {
+    const items = Array.from(toc_container.querySelectorAll('li[role="treeitem"]'));
+    const current = document.activeElement.closest('li[role="treeitem"]');
+    if (!current) return;
+
+    const current_index = items.indexOf(current);
+    let next_index = current_index;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        next_index = Math.min(current_index + 1, items.length - 1);
+        break;
+
+      case 'ArrowUp':
+        e.preventDefault();
+        next_index = Math.max(current_index - 1, 0);
+        break;
+
+      case 'Home':
+        e.preventDefault();
+        next_index = 0;
+        break;
+
+      case 'End':
+        e.preventDefault();
+        next_index = items.length - 1;
+        break;
+
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        const link = current.querySelector('a');
+        if (link) link.click();
+        return;
+
+      default:
+        return;
+    }
+
+    // Update roving tabindex
+    items.forEach((item, index) => {
+      item.setAttribute('tabindex', index === next_index ? '0' : '-1');
+    });
+
+    // Move focus
+    items[next_index].focus();
+  }, { signal: keyboard_controller.signal });
+}
+
 // Render markdown content
 async function render_content(content) {
   // If a render is already in progress, queue this one
@@ -181,7 +405,8 @@ ${escaped_frontmatter}
     // Sanitize with DOMPurify
     const clean_html = DOMPurify.sanitize(frontmatter_html + html, {
       ADD_TAGS: ['div', 'section', 'pre', 'input'],
-      ADD_ATTR: ['class', 'data-original', 'type', 'disabled', 'checked']
+      ADD_ATTR: ['class', 'id', 'data-original', 'type', 'disabled', 'checked'],
+      SANITIZE_NAMED_PROPS: true
     });
 
     // Inject to DOM
@@ -194,6 +419,15 @@ ${escaped_frontmatter}
       if (!input.hasAttribute('disabled')) input.setAttribute('disabled', 'disabled');
     });
 
+    // Extract and render TOC after DOM injection
+    extract_and_render_toc(content_element);
+
+    // Setup scroll tracking for TOC active state
+    setup_scroll_tracking();
+
+    // Setup ARIA keyboard navigation for TOC
+    setup_toc_keyboard_nav();
+
     // Apply syntax highlighting to code blocks
     if (window.hljs) {
       const code_blocks = content_element.querySelectorAll('pre code.hljs');
@@ -204,6 +438,9 @@ ${escaped_frontmatter}
 
     // Render mermaid diagrams
     await render_mermaid();
+
+    // Invalidate heading cache after mermaid rendering shifts positions
+    invalidate_heading_cache();
   } catch (err) {
     console.error('Render failed:', err);
     const content_element = document.getElementById('content');
@@ -351,6 +588,25 @@ function init() {
 
   // Setup drag-and-drop
   setup_drag_drop();
+
+  // Toggle TOC sidebar
+  function toggle_toc() {
+    const toc_sidebar = document.getElementById('toc-sidebar');
+    if (!toc_sidebar) {
+      console.error('TOC toggle failed: sidebar element not found');
+      return;
+    }
+    toc_sidebar.classList.toggle('toc-hidden');
+  }
+
+  // Toggle TOC sidebar on Cmd+Shift+O
+  window.electronAPI.onToggleToc(toggle_toc);
+
+  // Toggle TOC with button click
+  const toc_toggle_btn = document.getElementById('toc-toggle');
+  if (toc_toggle_btn) {
+    toc_toggle_btn.addEventListener('click', toggle_toc);
+  }
 }
 
 init();
