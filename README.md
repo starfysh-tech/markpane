@@ -197,5 +197,4 @@ MIT © Starfysh
 
 ## Roadmap
 
-- [ ] Homebrew formula for easier installation
-- [ ] Windows/Linux support (Electron app works, Quick Look is macOS-only)
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full development roadmap.
