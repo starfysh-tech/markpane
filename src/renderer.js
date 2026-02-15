@@ -456,6 +456,17 @@ function init() {
       toc_sidebar.classList.toggle('toc-hidden');
     }
   });
+
+  // Toggle TOC with button click
+  const toc_toggle_btn = document.getElementById('toc-toggle');
+  if (toc_toggle_btn) {
+    toc_toggle_btn.addEventListener('click', () => {
+      const toc_sidebar = document.getElementById('toc-sidebar');
+      if (toc_sidebar) {
+        toc_sidebar.classList.toggle('toc-hidden');
+      }
+    });
+  }
 }
 
 init();

@@ -11,9 +11,12 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
 </head>
 <body>
-  <div class="titlebar-spacer"><span id="filename"></span></div>
+  <div class="titlebar-spacer">
+    <button id="toc-toggle" aria-label="Toggle Table of Contents" title="Toggle TOC (⌘⇧O)">☰</button>
+    <span id="filename"></span>
+  </div>
   <div id="app-container">
-    <nav id="toc-sidebar" class="toc-hidden" role="tree" aria-label="Table of Contents"></nav>
+    <nav id="toc-sidebar" role="tree" aria-label="Table of Contents"></nav>
     <div id="content" class="markdown-body"></div>
   </div>
 
