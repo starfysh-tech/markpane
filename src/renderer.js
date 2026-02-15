@@ -204,6 +204,12 @@ ${escaped_frontmatter}
 
     // Render mermaid diagrams
     await render_mermaid();
+  } catch (err) {
+    console.error('Render failed:', err);
+    const content_element = document.getElementById('content');
+    if (content_element) {
+      content_element.textContent = `Render error: ${err.message}`;
+    }
   } finally {
     render_active = false;
 
@@ -226,6 +232,11 @@ function show_error(message) {
 function setup_drag_drop() {
   let drag_counter = 0;
   const overlay = document.getElementById('drop-overlay');
+
+  if (!overlay) {
+    console.warn('Drop overlay element not found, drag-drop disabled');
+    return;
+  }
 
   document.body.addEventListener('dragenter', (e) => {
     e.preventDefault();
@@ -303,23 +314,27 @@ function init() {
   window.electronAPI.onFileChanged(async (content, filename) => {
     if (is_pdf_mode) return;
 
-    // Save scroll position as ratio
-    const content_element = document.getElementById('content');
-    const scroll_ratio = content_element.scrollHeight > 0
-      ? content_element.scrollTop / content_element.scrollHeight
-      : 0;
+    try {
+      // Save scroll position as ratio
+      const content_element = document.getElementById('content');
+      const scroll_ratio = content_element.scrollHeight > 0
+        ? content_element.scrollTop / content_element.scrollHeight
+        : 0;
 
-    // Update filename if provided
-    if (filename) {
-      document.getElementById('filename').textContent = filename;
+      // Update filename if provided
+      if (filename) {
+        document.getElementById('filename').textContent = filename;
+      }
+
+      // Re-render content
+      await render_content(content);
+
+      // Restore scroll position
+      const new_scroll_top = scroll_ratio * content_element.scrollHeight;
+      content_element.scrollTop = new_scroll_top;
+    } catch (err) {
+      console.error('File change handling failed:', err);
     }
-
-    // Re-render content
-    await render_content(content);
-
-    // Restore scroll position
-    const new_scroll_top = scroll_ratio * content_element.scrollHeight;
-    content_element.scrollTop = new_scroll_top;
   });
 
   // Receive errors from main process
@@ -330,6 +345,7 @@ function init() {
   // Always-on-top indicator
   window.electronAPI.onAlwaysOnTopChanged((is_pinned) => {
     const indicator = document.getElementById('pin-indicator');
+    if (!indicator) return;
     indicator.classList.toggle('visible', is_pinned);
   });
 

@@ -25,32 +25,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFile: (file_path) => {
     // Validate input type
     if (typeof file_path !== 'string') {
-      console.error('openFile: path must be string');
-      return;
-    }
-
-    // Validate length (prevent DoS)
-    if (file_path.length > 4096) {
-      console.error('openFile: path too long');
       return;
     }
 
     ipcRenderer.send('open-file', file_path);
   },
 
-  toggleAlwaysOnTop: (() => {
-    let last_toggle = 0;
-    return () => {
-      // Rate limit (prevent spam)
-      const now = Date.now();
-      if (now - last_toggle < 500) {
-        return; // Debounce 500ms
-      }
-      last_toggle = now;
-
-      ipcRenderer.send('toggle-always-on-top');
-    };
-  })(),
+  toggleAlwaysOnTop: () => {
+    ipcRenderer.send('toggle-always-on-top');
+  },
 
   onAlwaysOnTopChanged: (callback) => {
     ipcRenderer.removeAllListeners('always-on-top-changed');

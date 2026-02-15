@@ -15,6 +15,13 @@ let file_watcher = null;
 // File watching with debounce
 let reload_debounce = null;
 
+// Helper: safe send to renderer
+function send_to_renderer(channel, ...args) {
+  if (main_window && !main_window.isDestroyed()) {
+    main_window.webContents.send(channel, ...args);
+  }
+}
+
 function reload_file() {
   if (!file_path || !fs.existsSync(file_path)) {
     return;
@@ -24,12 +31,11 @@ function reload_file() {
     const new_content = fs.readFileSync(file_path, 'utf-8');
     if (new_content !== file_content) {
       file_content = new_content;
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.webContents.send('file-changed', file_content, display_name);
-      }
+      send_to_renderer('file-changed', file_content, display_name);
     }
   } catch (err) {
     console.warn('File reload failed:', err.message);
+    send_to_renderer('error', `Live reload failed: ${err.message}`);
   }
 }
 
@@ -39,7 +45,9 @@ function start_file_watcher() {
   }
 
   try {
-    file_watcher = fs.watch(file_path, { persistent: false }, (event_type) => {
+    // Capture file_path by value to prevent stale closure bug
+    const watched_path = file_path;
+    file_watcher = fs.watch(watched_path, { persistent: false }, (event_type) => {
       // Debounce rapid changes (atomic writes, multiple saves)
       if (reload_debounce) {
         clearTimeout(reload_debounce);
@@ -47,24 +55,24 @@ function start_file_watcher() {
 
       reload_debounce = setTimeout(() => {
         // Check if file still exists before reloading
-        if (fs.existsSync(file_path)) {
+        if (fs.existsSync(watched_path)) {
           reload_file();
         } else {
           // File deleted
           stop_file_watcher();
-          if (main_window && !main_window.isDestroyed()) {
-            main_window.webContents.send('error', 'File deleted');
-          }
+          send_to_renderer('error', 'File was deleted');
         }
       }, 300);
     });
 
     file_watcher.on('error', (err) => {
       console.warn('File watcher error:', err.message);
+      send_to_renderer('error', `File watch error: ${err.message}`);
       stop_file_watcher();
     });
   } catch (err) {
     console.warn('Failed to start file watcher:', err.message);
+    send_to_renderer('error', `Failed to watch file: ${err.message}`);
   }
 }
 
@@ -73,7 +81,7 @@ function stop_file_watcher() {
     try {
       file_watcher.close();
     } catch (err) {
-      // Ignore errors from closing dead watchers
+      console.warn('Error closing file watcher:', err.message);
     }
     file_watcher = null;
   }
@@ -646,9 +654,7 @@ function toggle_always_on_top() {
   }
 
   // Notify renderer
-  if (main_window && !main_window.isDestroyed()) {
-    main_window.webContents.send('always-on-top-changed', is_pinned);
-  }
+  send_to_renderer('always-on-top-changed', is_pinned);
 }
 
 function create_window() {
@@ -687,11 +693,11 @@ function create_window() {
         console.error(error_message);
         app.quit();
       } else {
-        main_window.webContents.send('error', error_message);
+        send_to_renderer('error', error_message);
         dialog.showErrorBox('Error', error_message);
       }
     } else if (file_content) {
-      main_window.webContents.send('file-content', file_content, display_name, is_pdf_mode);
+      send_to_renderer('file-content', file_content, display_name, is_pdf_mode);
 
       if (is_pdf_mode) {
         // Wait for mermaid diagrams to render (ELK renderer is slow)
@@ -764,49 +770,24 @@ app.whenReady().then(async () => {
   ipcMain.on('open-file', (event, new_file_path) => {
     // Validate path type
     if (typeof new_file_path !== 'string') {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.webContents.send('error', 'Invalid file path');
-      }
+      send_to_renderer('error', 'Invalid file path');
       return;
     }
 
     // Normalize and resolve path (prevents traversal)
     const resolved_path = path.resolve(new_file_path);
 
-    // Restrict to user directories (security)
-    const allowed_dirs = [
-      os.homedir(),
-      app.getPath('documents'),
-      app.getPath('desktop'),
-      app.getPath('downloads')
-    ];
-
-    const is_allowed = allowed_dirs.some(dir =>
-      resolved_path.startsWith(path.resolve(dir))
-    );
-
-    if (!is_allowed) {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.webContents.send('error', 'Access denied');
-      }
-      return;
-    }
-
-    // Check extension BEFORE existence (prevent probing)
+    // Check extension (UX guard)
     const allowed_extensions = ['.md', '.markdown', '.mdown', '.mkd', '.mkdn', '.mdwn', '.mdx', '.txt'];
     const ext = path.extname(resolved_path).toLowerCase();
     if (!allowed_extensions.includes(ext)) {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.webContents.send('error', 'Unsupported file type');
-      }
+      send_to_renderer('error', 'Unsupported file type');
       return;
     }
 
-    // Now check existence
+    // Check existence
     if (!fs.existsSync(resolved_path)) {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.webContents.send('error', 'File not found');
-      }
+      send_to_renderer('error', 'File not found');
       return;
     }
 
@@ -814,19 +795,22 @@ app.whenReady().then(async () => {
     try {
       stop_file_watcher();
 
+      // Read into local variables first, only mutate globals on success
+      const content = fs.readFileSync(resolved_path, 'utf-8');
+
+      // Success - update globals
       file_path = resolved_path;
-      file_content = fs.readFileSync(file_path, 'utf-8');
+      file_content = content;
       display_name = path.basename(file_path);
 
+      send_to_renderer('file-content', file_content, display_name, false);
       if (main_window && !main_window.isDestroyed()) {
-        main_window.webContents.send('file-content', file_content, display_name, false);
         main_window.setTitle(display_name);
-        start_file_watcher();
       }
+      start_file_watcher();
     } catch (err) {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.webContents.send('error', 'Failed to read file');
-      }
+      console.error('Failed to open file:', resolved_path, err.message);
+      send_to_renderer('error', `Failed to read file: ${err.message}`);
     }
   });
 

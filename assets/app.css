@@ -16,6 +16,9 @@
   --error-border: #c53030;
   --error-text: #742a2a;
   --shadow-color: rgba(0, 0, 0, 0.1);
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --overlay-content-bg: rgba(0, 0, 0, 0.5);
+  --overlay-text: #ffffff;
 }
 
 /* Dark Theme Variables */
@@ -34,6 +37,9 @@
   --error-border: #d73a49;
   --error-text: #f97583;
   --shadow-color: rgba(0, 0, 0, 0.3);
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --overlay-content-bg: rgba(0, 0, 0, 0.5);
+  --overlay-text: #ffffff;
 }
 
 /* Body and Layout */
@@ -191,7 +197,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: var(--overlay-bg);
   z-index: 200;
   display: none;
   align-items: center;
@@ -208,8 +214,8 @@ body {
   padding: 40px 60px;
   font-size: 20px;
   font-weight: 500;
-  color: #ffffff;
-  background-color: rgba(0, 0, 0, 0.5);
+  color: var(--overlay-text);
+  background-color: var(--overlay-content-bg);
   pointer-events: none;
   user-select: none;
 }
@@ -242,7 +248,7 @@ body {
 /* Selection */
 ::selection {
   background-color: var(--link-color);
-  color: #ffffff;
+  color: var(--overlay-text);
 }
 
 /* Loading state */
