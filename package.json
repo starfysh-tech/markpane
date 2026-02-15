@@ -1,9 +1,9 @@
 {
-  "name": "peekdown",
+  "name": "markpane",
   "version": "1.3.0",
   "description": "A lightweight Electron viewer that renders markdown files with mermaid diagram support",
   "main": "src/main.js",
-  "bin": "./bin/peekdown.js",
+  "bin": "./bin/markpane.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
@@ -28,15 +28,15 @@
     "electron-builder": "^24.0.0"
   },
   "build": {
-    "appId": "com.peekdown.app",
-    "productName": "Peekdown",
+    "appId": "com.markpane.app",
+    "productName": "MarkPane",
     "icon": "assets/icon.png",
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "assets/icon.png",
       "identity": "Starfysh, LLC (A3KNB5VZH2)",
       "signIgnore": [
-        "PeekdownQLHost\\.app\\.bundled"
+        "MarkPaneQLHost\\.app\\.bundled"
       ],
       "target": "dmg"
     },
@@ -46,8 +46,8 @@
     ],
     "extraResources": [
       {
-        "from": "assets/quicklook/PeekdownQLHost.app.bundled",
-        "to": "PeekdownQLHost.app.bundled"
+        "from": "assets/quicklook/MarkPaneQLHost.app.bundled",
+        "to": "MarkPaneQLHost.app.bundled"
       }
     ]
   }

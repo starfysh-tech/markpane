@@ -1,17 +1,17 @@
 ---
-title: Peekdown Demo
+title: MarkPane Demo
 author: Your Name
 date: 2025-01-20
 tags: [markdown, mermaid, demo]
 ---
 
-# Welcome to Peekdown 🚀
+# Welcome to MarkPane 🚀
 
 Your markdown, beautifully rendered with a single spacebar press.
 
 ## What You're Seeing
 
-This demo showcases everything peekdown can do:
+This demo showcases everything markpane can do:
 
 ### Code Highlighting
 
@@ -41,7 +41,7 @@ const debounce = (fn, ms) => {
 graph TD
     A[📄 Markdown File] --> B{Quick Look?}
     B -->|Spacebar| C[🎨 Rendered Preview]
-    B -->|CLI| D[peekdown file.md]
+    B -->|CLI| D[markpane file.md]
     D --> C
     D --> E[📑 PDF Export]
     C --> F[✨ Beautiful Output]
@@ -60,7 +60,7 @@ graph TD
 
 ### Lists & Formatting
 
-What makes peekdown special:
+What makes markpane special:
 - **Zero friction** — spacebar preview, no app launch
 - **Native feeling** — follows your system theme
 - **Developer friendly** — CLI for automation
@@ -69,4 +69,4 @@ What makes peekdown special:
 
 ---
 
-*Rendered by peekdown • [GitHub](https://github.com/starfysh-tech/peekdown)*
+*Rendered by markpane • [GitHub](https://github.com/starfysh-tech/markpane)*

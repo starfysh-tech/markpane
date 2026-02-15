@@ -5,7 +5,7 @@
 - `src/renderer.js` handles markdown parsing, mermaid rendering, and theme sync.
 - `src/preload.js` exposes a safe IPC bridge via `contextBridge`.
 - `src/index.html` and `assets/app.css` define the renderer shell and styling.
-- `bin/peekdown.js` is the CLI entry point; `dist/` holds build artifacts.
+- `bin/markpane.js` is the CLI entry point; `dist/` holds build artifacts.
 
 ## Build, Test, and Development Commands
 - `yarn install` installs dependencies.

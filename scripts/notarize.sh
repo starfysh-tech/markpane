@@ -25,16 +25,16 @@ else
   fi
 fi
 
-APP_PATH="$ROOT_DIR/dist/mac-arm64/Peekdown.app"
-HELPER_PATH="$ROOT_DIR/assets/quicklook/PeekdownQLHost.app.bundled"
+APP_PATH="$ROOT_DIR/dist/mac-arm64/MarkPane.app"
+HELPER_PATH="$ROOT_DIR/assets/quicklook/MarkPaneQLHost.app.bundled"
 
 if [ ! -d "$APP_PATH" ]; then
-  echo "Peekdown.app not found at $APP_PATH" >&2
+  echo "MarkPane.app not found at $APP_PATH" >&2
   exit 1
 fi
 
 if [ ! -d "$HELPER_PATH" ]; then
-  echo "PeekdownQLHost.app.bundled not found at $HELPER_PATH" >&2
+  echo "MarkPaneQLHost.app.bundled not found at $HELPER_PATH" >&2
   exit 1
 fi
 

@@ -2,7 +2,7 @@ import Cocoa
 import SwiftUI
 
 @main
-struct PeekdownQLHostApp: App {
+struct MarkPaneQLHostApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {

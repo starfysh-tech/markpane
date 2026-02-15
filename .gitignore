@@ -84,9 +84,9 @@ out
 .nuxt
 dist
 macos/build
-assets/quicklook/PeekdownQLHost.app.bundled
-macos/PeekdownQL.xcodeproj/xcuserdata/
-macos/PeekdownQL.xcodeproj/project.xcworkspace/
+assets/quicklook/MarkPaneQLHost.app.bundled
+macos/MarkPaneQL.xcodeproj/xcuserdata/
+macos/MarkPaneQL.xcodeproj/project.xcworkspace/
 
 # Gatsby files
 .cache/

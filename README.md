@@ -1,16 +1,16 @@
-# Peekdown
+# MarkPane
 
 **Hit spacebar. See rendered markdown. That's it.**
 
 A lightweight markdown viewer for macOS that brings beautiful GitHub-style rendering to Finder's Quick Look. View markdown files with mermaid diagrams instantly—no apps to launch, no context switching.
 
-[**🌐 Website**](https://starfysh-tech.github.io/peekdown/) • [**📥 Download**](https://github.com/starfysh-tech/peekdown/releases/latest)
+[**🌐 Website**](https://starfysh-tech.github.io/markpane/) • [**📥 Download**](https://github.com/starfysh-tech/markpane/releases/latest)
 
 ---
 
-## Why Peekdown?
+## Why MarkPane?
 
-| ❌ Without Peekdown | ✅ With Peekdown |
+| ❌ Without MarkPane | ✅ With MarkPane |
 |---------------------|------------------|
 | Finder shows markdown as ugly plain text | Spacebar = instant preview with styling |
 | Open VS Code just to check a README | Your mermaid diagrams render automatically |
@@ -34,7 +34,7 @@ Python, JavaScript, Go, Rust, and more highlighted automatically with highlight.
 Follows your macOS appearance. Light mode, dark mode—diagrams adapt automatically.
 
 ### 📄 PDF Export
-One command: `peekdown file.md --pdf out.pdf`. Diagrams scale perfectly. Done.
+One command: `markpane file.md --pdf out.pdf`. Diagrams scale perfectly. Done.
 
 ### 🔐 100% Local & Private
 - **No data collection** - Zero telemetry or tracking
@@ -52,7 +52,7 @@ One command: `peekdown file.md --pdf out.pdf`. Diagrams scale perfectly. Done.
 
 ```bash
 # Download from GitHub Releases
-https://github.com/starfysh-tech/peekdown/releases/latest
+https://github.com/starfysh-tech/markpane/releases/latest
 
 # Extract and drag to Applications folder
 # Launch once to register Quick Look extension
@@ -61,8 +61,8 @@ https://github.com/starfysh-tech/peekdown/releases/latest
 ### For Developers
 
 ```bash
-git clone https://github.com/starfysh-tech/peekdown.git
-cd peekdown
+git clone https://github.com/starfysh-tech/markpane.git
+cd markpane
 yarn install
 yarn link
 ```
@@ -81,16 +81,16 @@ yarn link
 
 ```bash
 # View markdown file
-peekdown ./README.md
+markpane ./README.md
 
 # Export to PDF
-peekdown ./README.md --pdf output.pdf
+markpane ./README.md --pdf output.pdf
 
 # Uninstall Quick Look extension
-peekdown --uninstall-quicklook
+markpane --uninstall-quicklook
 
 # Uninstall everything
-peekdown --uninstall-all
+markpane --uninstall-all
 ```
 
 ### Keyboard Shortcuts
@@ -105,7 +105,7 @@ peekdown --uninstall-all
 
 ## Quick Look Technical Details
 
-Peekdown bundles a Quick Look extension for rendering Markdown (including mermaid) in Finder previews.
+MarkPane bundles a Quick Look extension for rendering Markdown (including mermaid) in Finder previews.
 
 **Requirements:**
 - macOS 14+
@@ -117,22 +117,22 @@ Peekdown bundles a Quick Look extension for rendering Markdown (including mermai
 yarn build:quicklook
 ```
 
-On first launch, Peekdown will prompt to move into `/Applications` or `~/Applications` and register the Quick Look extension.
+On first launch, MarkPane will prompt to move into `/Applications` or `~/Applications` and register the Quick Look extension.
 
 **Debugging:**
 
 ```bash
 # Enable telemetry
-peekdown --ql-debug
+markpane --ql-debug
 
 # Check logs
-cat ~/Library/Application\ Support/Peekdown/quicklook-telemetry.json
+cat ~/Library/Application\ Support/MarkPane/quicklook-telemetry.json
 
 # Enable Quick Look extension debug
-defaults write com.peekdown.app.quicklook-host.quicklook QLDebug -bool YES
+defaults write com.markpane.app.quicklook-host.quicklook QLDebug -bool YES
 
 # View extension logs
-cat ~/Library/Containers/com.peekdown.app.quicklook-host.quicklook/Data/Library/Caches/quicklook-extension.log
+cat ~/Library/Containers/com.markpane.app.quicklook-host.quicklook/Data/Library/Caches/quicklook-extension.log
 ```
 
 ---

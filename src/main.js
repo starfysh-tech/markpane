@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 
-let display_name = 'Peekdown';
+let display_name = 'MarkPane';
 let main_window = null;
 let file_content = null;
 let error_message = null;
@@ -43,15 +43,15 @@ ${pkg.name} v${pkg.version}
 ${pkg.description}
 
 Usage:
-  peekdown <file.md>                View markdown file
-  peekdown <file.md> --pdf out.pdf  Export to PDF
+  markpane <file.md>                View markdown file
+  markpane <file.md> --pdf out.pdf  Export to PDF
 
 Options:
   -h, --help      Show this help message
   -v, --version   Show version number
   --ql-debug      Enable Quick Look telemetry logging
   --uninstall-quicklook  Remove the Quick Look extension
-  --uninstall-all  Remove Peekdown and its Quick Look extension
+  --uninstall-all  Remove MarkPane and its Quick Look extension
 
 Shortcuts:
   Escape          Close window
@@ -80,7 +80,7 @@ const is_cli_mode = !!file_path || !!pdf_output || show_version || uninstall_qui
 // Read input file
 if (!file_path) {
   if (is_cli_mode) {
-    error_message = 'No markdown file specified.\nUsage: peekdown <file.md> [--pdf output.pdf]\nRun peekdown --help for more options.';
+    error_message = 'No markdown file specified.\nUsage: markpane <file.md> [--pdf output.pdf]\nRun markpane --help for more options.';
   }
 } else if (!fs.existsSync(file_path)) {
   error_message = `File not found: ${file_path}`;
@@ -120,7 +120,7 @@ function is_quicklook_debug_enabled() {
   if (quicklook_debug) {
     return true;
   }
-  const env_value = process.env.PEEKDOWN_QL_DEBUG;
+  const env_value = process.env.MARKPANE_QL_DEBUG;
   if (!env_value) {
     return false;
   }
@@ -208,7 +208,7 @@ function ensure_quicklook_debug_flag() {
       os.homedir(),
       'Library',
       'Containers',
-      'com.peekdown.app.quicklook-host.quicklook',
+      'com.markpane.app.quicklook-host.quicklook',
       'Data',
       'Library',
       'Caches'
@@ -263,8 +263,8 @@ function uninstall_quicklook() {
     buttons: ['Uninstall Quick Look', 'Cancel'],
     defaultId: 0,
     cancelId: 1,
-    message: 'Remove Peekdown Quick Look?',
-    detail: 'This will unregister the Quick Look extension, remove PeekdownQLHost.app from /Applications and ~/Applications, clear Quick Look caches, and delete Quick Look logs.'
+    message: 'Remove MarkPane Quick Look?',
+    detail: 'This will unregister the Quick Look extension, remove MarkPaneQLHost.app from /Applications and ~/Applications, clear Quick Look caches, and delete Quick Look logs.'
   });
 
   if (response !== 0) {
@@ -276,11 +276,18 @@ function uninstall_quicklook() {
   if (state && state.helper_path) {
     helper_paths.add(state.helper_path);
   }
+  // New paths
+  helper_paths.add(path.join('/Applications', 'MarkPaneQLHost.app'));
+  helper_paths.add(path.join(os.homedir(), 'Applications', 'MarkPaneQLHost.app'));
+  // Old paths (for existing Peekdown installs)
   helper_paths.add(path.join('/Applications', 'PeekdownQLHost.app'));
   helper_paths.add(path.join(os.homedir(), 'Applications', 'PeekdownQLHost.app'));
 
   for (const helper_path of helper_paths) {
-    const extension_path = path.join(helper_path, 'Contents', 'PlugIns', 'PeekdownQLExt.appex');
+    // Try both old and new extension names
+    const is_old_peekdown = helper_path.includes('Peekdown');
+    const extension_name = is_old_peekdown ? 'PeekdownQLExt.appex' : 'MarkPaneQLExt.appex';
+    const extension_path = path.join(helper_path, 'Contents', 'PlugIns', extension_name);
     if (fs.existsSync(extension_path)) {
       spawnSync('pluginkit', ['-r', extension_path], { stdio: 'ignore' });
     }
@@ -292,20 +299,27 @@ function uninstall_quicklook() {
   spawnSync('qlmanage', ['-r'], { stdio: 'ignore' });
   spawnSync('qlmanage', ['-r', 'cache'], { stdio: 'ignore' });
 
-  try {
-    const container_cache = path.join(
-      os.homedir(),
-      'Library',
-      'Containers',
-      'com.peekdown.app.quicklook-host.quicklook',
-      'Data',
-      'Library',
-      'Caches'
-    );
-    fs.rmSync(path.join(container_cache, 'quicklook-extension.log'), { force: true });
-    fs.rmSync(path.join(container_cache, 'quicklook-extension.debug'), { force: true });
-  } catch (err) {
-    console.warn('Quick Look log cleanup failed:', err && err.message ? err.message : err);
+  // Clean up both old and new container caches
+  const container_ids = [
+    'com.markpane.app.quicklook-host.quicklook',
+    'com.peekdown.app.quicklook-host.quicklook'
+  ];
+  for (const container_id of container_ids) {
+    try {
+      const container_cache = path.join(
+        os.homedir(),
+        'Library',
+        'Containers',
+        container_id,
+        'Data',
+        'Library',
+        'Caches'
+      );
+      fs.rmSync(path.join(container_cache, 'quicklook-extension.log'), { force: true });
+      fs.rmSync(path.join(container_cache, 'quicklook-extension.debug'), { force: true });
+    } catch (err) {
+      // Silently ignore if container doesn't exist
+    }
   }
 
   remove_quicklook_state();
@@ -313,23 +327,23 @@ function uninstall_quicklook() {
     type: 'info',
     buttons: ['OK'],
     message: 'Quick Look removed',
-    detail: 'Peekdown Quick Look has been unregistered.'
+    detail: 'MarkPane Quick Look has been unregistered.'
   });
 }
 
 function uninstall_all() {
   if (!is_mac || !is_packaged) {
-    dialog.showErrorBox('Uninstall Peekdown', 'Uninstall is only available in the packaged macOS app.');
+    dialog.showErrorBox('Uninstall MarkPane', 'Uninstall is only available in the packaged macOS app.');
     return;
   }
 
   const response = dialog.showMessageBoxSync({
     type: 'warning',
-    buttons: ['Uninstall Peekdown', 'Cancel'],
+    buttons: ['Uninstall MarkPane', 'Cancel'],
     defaultId: 0,
     cancelId: 1,
-    message: 'Remove Peekdown?',
-    detail: 'This will uninstall Peekdown, unregister the Quick Look extension, remove PeekdownQLHost.app, clear Quick Look caches, and delete Peekdown.app.'
+    message: 'Remove MarkPane?',
+    detail: 'This will uninstall MarkPane, unregister the Quick Look extension, remove MarkPaneQLHost.app, clear Quick Look caches, and delete MarkPane.app.'
   });
 
   if (response !== 0) {
@@ -352,8 +366,8 @@ function copy_app_bundle(source_path, target_path) {
 }
 
 function quicklook_helper_fingerprint(bundle_path) {
-  const host_binary = path.join(bundle_path, 'Contents', 'MacOS', 'PeekdownQLHost');
-  const ext_binary = path.join(bundle_path, 'Contents', 'PlugIns', 'PeekdownQLExt.appex', 'Contents', 'MacOS', 'PeekdownQLExt');
+  const host_binary = path.join(bundle_path, 'Contents', 'MacOS', 'MarkPaneQLHost');
+  const ext_binary = path.join(bundle_path, 'Contents', 'PlugIns', 'MarkPaneQLExt.appex', 'Contents', 'MacOS', 'MarkPaneQLExt');
   if (!fs.existsSync(host_binary) || !fs.existsSync(ext_binary)) {
     return null;
   }
@@ -375,14 +389,14 @@ async function prompt_move_to_applications() {
     buttons: ['Move to /Applications', 'Move to ~/Applications', 'Cancel'],
     defaultId: 0,
     cancelId: 2,
-    message: 'Move Peekdown to Applications?',
-    detail: 'Peekdown can register its Quick Look preview only from the Applications folder.'
+    message: 'Move MarkPane to Applications?',
+    detail: 'MarkPane can register its Quick Look preview only from the Applications folder.'
   });
   return result.response;
 }
 
 function register_quicklook(apps_path, telemetry) {
-  const helper_source = path.join(process.resourcesPath, 'PeekdownQLHost.app.bundled');
+  const helper_source = path.join(process.resourcesPath, 'MarkPaneQLHost.app.bundled');
   if (!fs.existsSync(helper_source)) {
     console.warn('Quick Look helper app not found in resources.');
     if (telemetry) {
@@ -391,10 +405,10 @@ function register_quicklook(apps_path, telemetry) {
     return;
   }
 
-  const helper_target = path.join(apps_path, 'PeekdownQLHost.app');
+  const helper_target = path.join(apps_path, 'MarkPaneQLHost.app');
   record_step(telemetry, 'copy_helper', () => copy_app_bundle(helper_source, helper_target));
-  const extension_path = path.join(helper_target, 'Contents', 'PlugIns', 'PeekdownQLExt.appex');
-  const extension_binary = path.join(extension_path, 'Contents', 'MacOS', 'PeekdownQLExt');
+  const extension_path = path.join(helper_target, 'Contents', 'PlugIns', 'MarkPaneQLExt.appex');
+  const extension_binary = path.join(extension_path, 'Contents', 'MacOS', 'MarkPaneQLExt');
   const helper_fingerprint = quicklook_helper_fingerprint(helper_source);
 
   const signing_ok = record_step(telemetry, 'codesign_verify', () => spawnSync('codesign', ['--verify', '--deep', '--strict', helper_target], {
@@ -496,7 +510,7 @@ async function maybe_handle_quicklook_setup() {
       }
       return true;
     } catch (err) {
-      dialog.showErrorBox('Move Failed', `Could not move Peekdown: ${err.message}`);
+      dialog.showErrorBox('Move Failed', `Could not move MarkPane: ${err.message}`);
       app.quit();
       if (telemetry) {
         telemetry.outcome = 'move_failed';
@@ -509,13 +523,13 @@ async function maybe_handle_quicklook_setup() {
   }
 
   const state = load_quicklook_state();
-  const helper_source = path.join(process.resourcesPath, 'PeekdownQLHost.app.bundled');
-  const helper_target = path.join(apps_path, 'PeekdownQLHost.app');
+  const helper_source = path.join(process.resourcesPath, 'MarkPaneQLHost.app.bundled');
+  const helper_target = path.join(apps_path, 'MarkPaneQLHost.app');
   const source_fingerprint = quicklook_helper_fingerprint(helper_source);
   const target_fingerprint = quicklook_helper_fingerprint(helper_target);
 
   if (state && state.helper_path && state.helper_path !== helper_target && fs.existsSync(state.helper_path)) {
-    const stale_extension = path.join(state.helper_path, 'Contents', 'PlugIns', 'PeekdownQLExt.appex');
+    const stale_extension = path.join(state.helper_path, 'Contents', 'PlugIns', 'MarkPaneQLExt.appex');
     record_step(telemetry, 'pluginkit_remove_stale', () => spawnSync('pluginkit', ['-r', stale_extension], { stdio: 'ignore' }));
     record_step(telemetry, 'remove_stale_helper', () => fs.rmSync(state.helper_path, { recursive: true, force: true }));
   }
@@ -650,7 +664,7 @@ app.whenReady().then(async () => {
             click: uninstall_quicklook
           },
           {
-            label: 'Uninstall Peekdown…',
+            label: 'Uninstall MarkPane…',
             click: uninstall_all
           },
           { type: 'separator' },

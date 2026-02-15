@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "7CDABF112EC87E700099AE98"
-               BuildableName = "PeekdownQLHost.app"
-               BlueprintName = "PeekdownQLHost"
-               ReferencedContainer = "container:PeekdownQL.xcodeproj">
+               BuildableName = "MarkPaneQLHost.app"
+               BlueprintName = "MarkPaneQLHost"
+               ReferencedContainer = "container:MarkPaneQL.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7CDABF112EC87E700099AE98"
-            BuildableName = "PeekdownQLHost.app"
-            BlueprintName = "PeekdownQLHost"
-            ReferencedContainer = "container:PeekdownQL.xcodeproj">
+            BuildableName = "MarkPaneQLHost.app"
+            BlueprintName = "MarkPaneQLHost"
+            ReferencedContainer = "container:MarkPaneQL.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7CDABF112EC87E700099AE98"
-            BuildableName = "PeekdownQLHost.app"
-            BlueprintName = "PeekdownQLHost"
-            ReferencedContainer = "container:PeekdownQL.xcodeproj">
+            BuildableName = "MarkPaneQLHost.app"
+            BlueprintName = "MarkPaneQLHost"
+            ReferencedContainer = "container:MarkPaneQL.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

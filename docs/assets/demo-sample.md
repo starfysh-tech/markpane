@@ -1,13 +1,13 @@
 # Architecture Overview
 
-Peekdown provides instant markdown preview directly in macOS Finder.
+MarkPane provides instant markdown preview directly in macOS Finder.
 
 ## System Flow
 
 ```mermaid
 graph LR
     A[Finder] -->|Spacebar| B[Quick Look]
-    B --> C[Peekdown Extension]
+    B --> C[MarkPane Extension]
     C --> D[Markdown Parser]
     C --> E[Mermaid Renderer]
     D --> F[Preview Window]

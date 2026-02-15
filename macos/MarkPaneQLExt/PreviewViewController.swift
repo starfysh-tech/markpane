@@ -287,7 +287,7 @@ final class QuickLookLogger {
     private let cacheURL: URL?
 
     init() {
-        let envValue = ProcessInfo.processInfo.environment["PEEKDOWN_QL_DEBUG"]
+        let envValue = ProcessInfo.processInfo.environment["MARKPANE_QL_DEBUG"]
         let envEnabled = envValue == "1" || envValue?.lowercased() == "true"
         let defaultsEnabled = UserDefaults.standard.bool(forKey: "QLDebug")
         let flagEnabled = QuickLookLogger.debugFlagExists()

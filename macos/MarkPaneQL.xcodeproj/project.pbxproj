@@ -10,7 +10,7 @@
 		7CDABF20F8632EC889840099AE98 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDABFF5C49A2EC889840099AE98 /* Constants.swift */; };
 		7CDABF36EC132EC889840099AE98 /* SharedSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDABFED2B4A2EC889840099AE98 /* SharedSettings.swift */; };
 		7CDABF592EC889840099AE98 /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7CDABF582EC889840099AE98 /* Quartz.framework */; };
-		7CDABF652EC889840099AE98 /* PeekdownQLExt.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7CDABF562EC889840099AE98 /* PeekdownQLExt.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7CDABF652EC889840099AE98 /* MarkPaneQLExt.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7CDABF562EC889840099AE98 /* MarkPaneQLExt.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7CDABFF3080A2EC889840099AE98 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDABFF5C49A2EC889840099AE98 /* Constants.swift */; };
 		7CDABFFC81B22EC889840099AE98 /* SharedSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDABFED2B4A2EC889840099AE98 /* SharedSettings.swift */; };
 		7CDAC1012F0000000099AE98 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7CDAC1002F0000000099AE98 /* WebKit.framework */; };
@@ -22,7 +22,7 @@
 			containerPortal = 7CDABF0A2EC87E700099AE98 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 7CDABF552EC889840099AE98;
-			remoteInfo = PeekdownQLExt;
+			remoteInfo = MarkPaneQLExt;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -33,7 +33,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				7CDABF652EC889840099AE98 /* PeekdownQLExt.appex in Embed Foundation Extensions */,
+				7CDABF652EC889840099AE98 /* MarkPaneQLExt.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -41,8 +41,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		7CDABF122EC87E700099AE98 /* PeekdownQLHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PeekdownQLHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		7CDABF562EC889840099AE98 /* PeekdownQLExt.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PeekdownQLExt.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7CDABF122EC87E700099AE98 /* MarkPaneQLHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkPaneQLHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7CDABF562EC889840099AE98 /* MarkPaneQLExt.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MarkPaneQLExt.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7CDABF582EC889840099AE98 /* Quartz.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Quartz.framework; path = System/Library/Frameworks/Quartz.framework; sourceTree = SDKROOT; };
 		7CDABFED2B4A2EC889840099AE98 /* SharedSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SharedSettings.swift; sourceTree = "<group>"; };
 		7CDABFF5C49A2EC889840099AE98 /* Constants.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
@@ -50,27 +50,27 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7CDABF692EC889840099AE98 /* Exceptions for "PeekdownQLExt" folder in "PeekdownQLExt" target */ = {
+		7CDABF692EC889840099AE98 /* Exceptions for "MarkPaneQLExt" folder in "MarkPaneQLExt" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 7CDABF552EC889840099AE98 /* PeekdownQLExt */;
+			target = 7CDABF552EC889840099AE98 /* MarkPaneQLExt */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		7CDABF142EC87E700099AE98 /* PeekdownQLHost */ = {
+		7CDABF142EC87E700099AE98 /* MarkPaneQLHost */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = PeekdownQLHost;
+			path = MarkPaneQLHost;
 			sourceTree = "<group>";
 		};
-		7CDABF5A2EC889840099AE98 /* PeekdownQLExt */ = {
+		7CDABF5A2EC889840099AE98 /* MarkPaneQLExt */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7CDABF692EC889840099AE98 /* Exceptions for "PeekdownQLExt" folder in "PeekdownQLExt" target */,
+				7CDABF692EC889840099AE98 /* Exceptions for "MarkPaneQLExt" folder in "MarkPaneQLExt" target */,
 			);
-			path = PeekdownQLExt;
+			path = MarkPaneQLExt;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -98,8 +98,8 @@
 		7CDABF092EC87E700099AE98 = {
 			isa = PBXGroup;
 			children = (
-				7CDABF142EC87E700099AE98 /* PeekdownQLHost */,
-				7CDABF5A2EC889840099AE98 /* PeekdownQLExt */,
+				7CDABF142EC87E700099AE98 /* MarkPaneQLHost */,
+				7CDABF5A2EC889840099AE98 /* MarkPaneQLExt */,
 				7CDABFC695242EC889840099AE98 /* Shared */,
 				7CDABF572EC889840099AE98 /* Frameworks */,
 				7CDABF132EC87E700099AE98 /* Products */,
@@ -109,8 +109,8 @@
 		7CDABF132EC87E700099AE98 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7CDABF122EC87E700099AE98 /* PeekdownQLHost.app */,
-				7CDABF562EC889840099AE98 /* PeekdownQLExt.appex */,
+				7CDABF122EC87E700099AE98 /* MarkPaneQLHost.app */,
+				7CDABF562EC889840099AE98 /* MarkPaneQLExt.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -136,9 +136,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7CDABF112EC87E700099AE98 /* PeekdownQLHost */ = {
+		7CDABF112EC87E700099AE98 /* MarkPaneQLHost */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7CDABF1D2EC87E720099AE98 /* Build configuration list for PBXNativeTarget "PeekdownQLHost" */;
+			buildConfigurationList = 7CDABF1D2EC87E720099AE98 /* Build configuration list for PBXNativeTarget "MarkPaneQLHost" */;
 			buildPhases = (
 				7CDABF0E2EC87E700099AE98 /* Sources */,
 				7CDABF0F2EC87E700099AE98 /* Frameworks */,
@@ -151,18 +151,18 @@
 				7CDABF642EC889840099AE98 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				7CDABF142EC87E700099AE98 /* PeekdownQLHost */,
+				7CDABF142EC87E700099AE98 /* MarkPaneQLHost */,
 			);
-			name = PeekdownQLHost;
+			name = MarkPaneQLHost;
 			packageProductDependencies = (
 			);
-			productName = PeekdownQLHost;
-			productReference = 7CDABF122EC87E700099AE98 /* PeekdownQLHost.app */;
+			productName = MarkPaneQLHost;
+			productReference = 7CDABF122EC87E700099AE98 /* MarkPaneQLHost.app */;
 			productType = "com.apple.product-type.application";
 		};
-		7CDABF552EC889840099AE98 /* PeekdownQLExt */ = {
+		7CDABF552EC889840099AE98 /* MarkPaneQLExt */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7CDABF6A2EC889840099AE98 /* Build configuration list for PBXNativeTarget "PeekdownQLExt" */;
+			buildConfigurationList = 7CDABF6A2EC889840099AE98 /* Build configuration list for PBXNativeTarget "MarkPaneQLExt" */;
 			buildPhases = (
 				7CDABF522EC889840099AE98 /* Sources */,
 				7CDABF532EC889840099AE98 /* Frameworks */,
@@ -173,13 +173,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				7CDABF5A2EC889840099AE98 /* PeekdownQLExt */,
+				7CDABF5A2EC889840099AE98 /* MarkPaneQLExt */,
 			);
-			name = PeekdownQLExt;
+			name = MarkPaneQLExt;
 			packageProductDependencies = (
 			);
-			productName = PeekdownQLExt;
-			productReference = 7CDABF562EC889840099AE98 /* PeekdownQLExt.appex */;
+			productName = MarkPaneQLExt;
+			productReference = 7CDABF562EC889840099AE98 /* MarkPaneQLExt.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -200,7 +200,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 7CDABF0D2EC87E700099AE98 /* Build configuration list for PBXProject "PeekdownQL" */;
+			buildConfigurationList = 7CDABF0D2EC87E700099AE98 /* Build configuration list for PBXProject "MarkPaneQL" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -214,8 +214,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7CDABF112EC87E700099AE98 /* PeekdownQLHost */,
-				7CDABF552EC889840099AE98 /* PeekdownQLExt */,
+				7CDABF112EC87E700099AE98 /* MarkPaneQLHost */,
+				7CDABF552EC889840099AE98 /* MarkPaneQLExt */,
 			);
 		};
 /* End PBXProject section */
@@ -261,7 +261,7 @@
 /* Begin PBXTargetDependency section */
 		7CDABF642EC889840099AE98 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 7CDABF552EC889840099AE98 /* PeekdownQLExt */;
+			target = 7CDABF552EC889840099AE98 /* MarkPaneQLExt */;
 			targetProxy = 7CDABF632EC889840099AE98 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -390,7 +390,7 @@
 		7CDABF1E2EC87E720099AE98 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PeekdownQLHost/PeekdownQLHost.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MarkPaneQLHost/MarkPaneQLHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -409,7 +409,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.peekdown.app.quicklook-host";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.markpane.app.quicklook-host";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -424,7 +424,7 @@
 		7CDABF1F2EC87E720099AE98 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PeekdownQLHost/PeekdownQLHost.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MarkPaneQLHost/MarkPaneQLHost.entitlements;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -443,7 +443,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.peekdown.app.quicklook-host";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.markpane.app.quicklook-host";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -458,7 +458,7 @@
 		7CDABF672EC889840099AE98 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PeekdownQLExt/PeekdownQLExt.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MarkPaneQLExt/MarkPaneQLExt.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = A3KNB5VZH2;
@@ -468,8 +468,8 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PeekdownQLExt/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = PeekdownQLExt;
+				INFOPLIST_FILE = MarkPaneQLExt/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MarkPaneQLExt;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -477,7 +477,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 1.2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.peekdown.app.quicklook-host.quicklook";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.markpane.app.quicklook-host.quicklook";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -491,7 +491,7 @@
 		7CDABF682EC889840099AE98 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PeekdownQLExt/PeekdownQLExt.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MarkPaneQLExt/MarkPaneQLExt.entitlements;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
@@ -501,8 +501,8 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PeekdownQLExt/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = PeekdownQLExt;
+				INFOPLIST_FILE = MarkPaneQLExt/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MarkPaneQLExt;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -510,7 +510,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 1.2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.peekdown.app.quicklook-host.quicklook";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.markpane.app.quicklook-host.quicklook";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -524,7 +524,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		7CDABF0D2EC87E700099AE98 /* Build configuration list for PBXProject "PeekdownQL" */ = {
+		7CDABF0D2EC87E700099AE98 /* Build configuration list for PBXProject "MarkPaneQL" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7CDABF1B2EC87E720099AE98 /* Debug */,
@@ -533,7 +533,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7CDABF1D2EC87E720099AE98 /* Build configuration list for PBXNativeTarget "PeekdownQLHost" */ = {
+		7CDABF1D2EC87E720099AE98 /* Build configuration list for PBXNativeTarget "MarkPaneQLHost" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7CDABF1E2EC87E720099AE98 /* Debug */,
@@ -542,7 +542,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7CDABF6A2EC889840099AE98 /* Build configuration list for PBXNativeTarget "PeekdownQLExt" */ = {
+		7CDABF6A2EC889840099AE98 /* Build configuration list for PBXNativeTarget "MarkPaneQLExt" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7CDABF672EC889840099AE98 /* Debug */,
