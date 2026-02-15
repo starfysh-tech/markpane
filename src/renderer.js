@@ -1,6 +1,3 @@
-// Import highlight.js
-import hljs from '../node_modules/highlight.js/es/index.js';
-
 // Initialize markdown-it with custom fence renderer
 const md = window.markdownit({
   html: true,
@@ -168,10 +165,12 @@ ${escaped_frontmatter}
   content_element.innerHTML = clean_html;
 
   // Apply syntax highlighting to code blocks
-  const code_blocks = content_element.querySelectorAll('pre code.hljs');
-  code_blocks.forEach((block) => {
-    hljs.highlightElement(block);
-  });
+  if (window.hljs) {
+    const code_blocks = content_element.querySelectorAll('pre code.hljs');
+    code_blocks.forEach((block) => {
+      window.hljs.highlightElement(block);
+    });
+  }
 
   // Render mermaid diagrams
   await render_mermaid();

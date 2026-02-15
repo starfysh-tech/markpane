@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;">
   <title>MarkPane</title>
   <link rel="stylesheet" href="../assets/github-markdown.css">
   <link rel="stylesheet" href="../assets/app.css">
-  <link rel="stylesheet" href="../node_modules/highlight.js/styles/github.css" media="(prefers-color-scheme: light)">
-  <link rel="stylesheet" href="../node_modules/highlight.js/styles/github-dark.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
 </head>
 <body>
   <div class="titlebar-spacer"><span id="filename"></span></div>
@@ -17,6 +17,7 @@
   <script src="../node_modules/markdown-it/dist/markdown-it.min.js"></script>
   <script src="../node_modules/mermaid/dist/mermaid.min.js"></script>
   <script src="../node_modules/dompurify/dist/purify.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
   <script type="module" src="renderer.js"></script>
 </body>
 </html>
