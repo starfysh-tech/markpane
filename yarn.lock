@@ -2430,6 +2430,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"markpane@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "markpane@workspace:."
+  dependencies:
+    dompurify: "npm:^3.0.0"
+    electron: "npm:^29.0.0"
+    electron-builder: "npm:^24.0.0"
+    markdown-it: "npm:^14.0.0"
+    mermaid: "npm:^10.9.0"
+  bin:
+    markpane: ./bin/markpane.js
+  languageName: unknown
+  linkType: soft
+
 "matcher@npm:^3.0.0":
   version: 3.0.0
   resolution: "matcher@npm:3.0.0"
@@ -3075,20 +3089,6 @@ __metadata:
   checksum: 10c0/2a16ed0e81fbc43513e245aa5763354e25e787dab0d539581a6c3f0f967461a159ed6236b2559de23aa5b88e7dc32b469b6c47568833dd142a4b24b4f5cd2620
   languageName: node
   linkType: hard
-
-"peekdown@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "peekdown@workspace:."
-  dependencies:
-    dompurify: "npm:^3.0.0"
-    electron: "npm:^29.0.0"
-    electron-builder: "npm:^24.0.0"
-    markdown-it: "npm:^14.0.0"
-    mermaid: "npm:^10.9.0"
-  bin:
-    peekdown: ./bin/peekdown.js
-  languageName: unknown
-  linkType: soft
 
 "pend@npm:~1.2.0":
   version: 1.2.0
