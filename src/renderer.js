@@ -132,12 +132,32 @@ function split_frontmatter(content) {
 async function render_content(content) {
   const content_element = document.getElementById('content');
 
-  // Parse markdown
-  const html = md.render(content);
+  // Split frontmatter from body
+  const { frontmatter, body } = split_frontmatter(content);
+
+  // Render frontmatter section if present
+  let frontmatter_html = '';
+  if (frontmatter) {
+    const escaped_frontmatter = frontmatter
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    frontmatter_html = `
+      <section class="frontmatter">
+        <div class="frontmatter-title">Frontmatter</div>
+        <pre>---
+${escaped_frontmatter}
+---</pre>
+      </section>
+    `;
+  }
+
+  // Parse markdown body
+  const html = md.render(body);
 
   // Sanitize with DOMPurify
-  const clean_html = DOMPurify.sanitize(html, {
-    ADD_TAGS: ['div'],
+  const clean_html = DOMPurify.sanitize(frontmatter_html + html, {
+    ADD_TAGS: ['div', 'section', 'pre'],
     ADD_ATTR: ['class', 'data-original']
   });
 
