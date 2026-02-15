@@ -66,6 +66,36 @@ Quick Look extensions are ignored by macOS unless the host app and extension are
 - Check `window.matchMedia('(prefers-color-scheme: dark)').matches`
 - Re-render mermaid on theme change (original content stored in `data-original` attribute)
 
+**UMD Plugin Loading (Electron Renderer):**
+
+When adding plugins via `<script>` tags in `src/index.html`:
+
+1. **Verify global variable name** - Package name ≠ global name
+   - `markdown-it-task-lists` → `window.markdownitTaskLists` (lowercase 'it')
+   - `highlight.js` → `window.hljs` (abbreviated)
+   - Check minified source or browser console to confirm
+
+2. **Test in DevTools first**
+   ```javascript
+   // After loading script
+   Object.keys(window).filter(k => k.toLowerCase().includes('keyword'))
+   ```
+
+3. **Add defensive check in renderer.js**
+   ```javascript
+   if (window.pluginName) {
+     md.use(window.pluginName);
+   } else {
+     console.warn('Plugin not loaded');
+   }
+   ```
+
+4. **Common gotcha:** Hyphens are removed, NOT converted to PascalCase
+   - ❌ `markdown-it-foo` → `markdownItFoo`
+   - ✅ `markdown-it-foo` → `markdownitFoo`
+
+See `docs/solutions/integration-issues/` for examples.
+
 ## Security Requirements
 
 - `contextIsolation: true` / `nodeIntegration: false` - Never change these

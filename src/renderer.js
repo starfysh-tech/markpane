@@ -5,6 +5,16 @@ const md = window.markdownit({
   typographer: true
 });
 
+// Add task lists plugin (read-only checkboxes)
+if (window.markdownitTaskLists) {
+  md.use(window.markdownitTaskLists, { enabled: false });
+} else {
+  console.warn('Task lists plugin not loaded');
+}
+
+// Enable strikethrough support
+md.enable('strikethrough');
+
 // Store default fence renderer
 const default_fence = md.renderer.rules.fence.bind(md.renderer.rules);
 
@@ -157,12 +167,19 @@ ${escaped_frontmatter}
 
   // Sanitize with DOMPurify
   const clean_html = DOMPurify.sanitize(frontmatter_html + html, {
-    ADD_TAGS: ['div', 'section', 'pre'],
-    ADD_ATTR: ['class', 'data-original']
+    ADD_TAGS: ['div', 'section', 'pre', 'input'],
+    ADD_ATTR: ['class', 'data-original', 'type', 'disabled', 'checked']
   });
 
   // Inject to DOM
   content_element.innerHTML = clean_html;
+
+  // Post-sanitization: ensure only checkbox inputs remain
+  const inputs = content_element.querySelectorAll('input');
+  inputs.forEach(input => {
+    if (input.type !== 'checkbox') input.remove();
+    if (!input.hasAttribute('disabled')) input.setAttribute('disabled', 'disabled');
+  });
 
   // Apply syntax highlighting to code blocks
   if (window.hljs) {
