@@ -164,6 +164,14 @@ ${escaped_frontmatter}
   // Inject to DOM
   content_element.innerHTML = clean_html;
 
+  // Apply syntax highlighting to code blocks
+  if (window.hljs) {
+    const code_blocks = content_element.querySelectorAll('pre code.hljs');
+    code_blocks.forEach((block) => {
+      window.hljs.highlightElement(block);
+    });
+  }
+
   // Render mermaid diagrams
   await render_mermaid();
 }
