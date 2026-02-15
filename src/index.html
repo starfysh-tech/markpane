@@ -11,10 +11,18 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
 </head>
 <body>
-  <div class="titlebar-spacer"><span id="filename"></span></div>
+  <div id="drop-overlay">
+    <div class="drop-overlay-content">Drop markdown file to open</div>
+  </div>
+  <div class="titlebar-spacer">
+    <div class="titlebar-traffic-spacer"></div>
+    <span id="filename"></span>
+    <span id="pin-indicator" title="Always on top (Cmd+Shift+A)">📌</span>
+  </div>
   <div id="content" class="markdown-body"></div>
 
   <script src="../node_modules/markdown-it/dist/markdown-it.min.js"></script>
+  <script src="../node_modules/markdown-it-task-lists/dist/markdown-it-task-lists.min.js"></script>
   <script src="../node_modules/mermaid/dist/mermaid.min.js"></script>
   <script src="../node_modules/dompurify/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>

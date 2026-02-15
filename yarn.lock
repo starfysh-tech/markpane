@@ -2421,6 +2421,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"markdown-it-task-lists@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "markdown-it-task-lists@npm:2.1.1"
+  checksum: 10c0/4061df2d27184e77fbe2fe3549bd84c33f1cd8e7962aabe0724ba16d55950267b09dc56fbf24c52daf8ed9624a662fcba50990a1603575bd197db453047e54d0
+  languageName: node
+  linkType: hard
+
 "markdown-it@npm:^14.0.0":
   version: 14.1.0
   resolution: "markdown-it@npm:14.1.0"
@@ -2446,6 +2453,7 @@ __metadata:
     electron-builder: "npm:^24.0.0"
     highlight.js: "npm:^11.11.1"
     markdown-it: "npm:^14.0.0"
+    markdown-it-task-lists: "npm:^2.1.1"
     mermaid: "npm:^10.9.0"
   bin:
     markpane: ./bin/markpane.js
