@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut, Menu } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, Menu, ipcMain } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -10,6 +10,79 @@ let main_window = null;
 let file_content = null;
 let error_message = null;
 let quicklook_debug = false;
+let file_watcher = null;
+
+// File watching with debounce
+let reload_debounce = null;
+
+function reload_file() {
+  if (!file_path || !fs.existsSync(file_path)) {
+    return;
+  }
+
+  try {
+    const new_content = fs.readFileSync(file_path, 'utf-8');
+    if (new_content !== file_content) {
+      file_content = new_content;
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.webContents.send('file-changed', file_content, display_name);
+      }
+    }
+  } catch (err) {
+    console.warn('File reload failed:', err.message);
+  }
+}
+
+function start_file_watcher() {
+  if (!file_path || file_watcher) {
+    return;
+  }
+
+  try {
+    file_watcher = fs.watch(file_path, { persistent: false }, (event_type) => {
+      // Debounce rapid changes (atomic writes, multiple saves)
+      if (reload_debounce) {
+        clearTimeout(reload_debounce);
+      }
+
+      reload_debounce = setTimeout(() => {
+        // Check if file still exists before reloading
+        if (fs.existsSync(file_path)) {
+          reload_file();
+        } else {
+          // File deleted
+          stop_file_watcher();
+          if (main_window && !main_window.isDestroyed()) {
+            main_window.webContents.send('error', 'File deleted');
+          }
+        }
+      }, 300);
+    });
+
+    file_watcher.on('error', (err) => {
+      console.warn('File watcher error:', err.message);
+      stop_file_watcher();
+    });
+  } catch (err) {
+    console.warn('Failed to start file watcher:', err.message);
+  }
+}
+
+function stop_file_watcher() {
+  if (file_watcher) {
+    try {
+      file_watcher.close();
+    } catch (err) {
+      // Ignore errors from closing dead watchers
+    }
+    file_watcher = null;
+  }
+
+  if (reload_debounce) {
+    clearTimeout(reload_debounce);
+    reload_debounce = null;
+  }
+}
 
 // Parse CLI args
 const args = process.argv.slice(2);
@@ -56,6 +129,7 @@ Options:
 Shortcuts:
   Escape          Close window
   Cmd/Ctrl+W      Close window
+  Cmd/Ctrl+Shift+A  Toggle always-on-top
 `);
   process.exit(0);
 }
@@ -640,8 +714,14 @@ function create_window() {
   }
 
   main_window.on('closed', () => {
+    stop_file_watcher();
     main_window = null;
   });
+
+  // Start file watcher (UI mode only)
+  if (!is_pdf_mode) {
+    start_file_watcher();
+  }
 }
 
 app.whenReady().then(async () => {
@@ -656,14 +736,114 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
+
+  // Handle file open requests from renderer
+  ipcMain.on('open-file', (event, new_file_path) => {
+    // Validate path type
+    if (typeof new_file_path !== 'string') {
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.webContents.send('error', 'Invalid file path');
+      }
+      return;
+    }
+
+    // Normalize and resolve path (prevents traversal)
+    const resolved_path = path.resolve(new_file_path);
+
+    // Restrict to user directories (security)
+    const allowed_dirs = [
+      os.homedir(),
+      app.getPath('documents'),
+      app.getPath('desktop'),
+      app.getPath('downloads')
+    ];
+
+    const is_allowed = allowed_dirs.some(dir =>
+      resolved_path.startsWith(path.resolve(dir))
+    );
+
+    if (!is_allowed) {
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.webContents.send('error', 'Access denied');
+      }
+      return;
+    }
+
+    // Check extension BEFORE existence (prevent probing)
+    const allowed_extensions = ['.md', '.markdown', '.mdown', '.mkd', '.mkdn', '.mdwn', '.mdx', '.txt'];
+    const ext = path.extname(resolved_path).toLowerCase();
+    if (!allowed_extensions.includes(ext)) {
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.webContents.send('error', 'Unsupported file type');
+      }
+      return;
+    }
+
+    // Now check existence
+    if (!fs.existsSync(resolved_path)) {
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.webContents.send('error', 'File not found');
+      }
+      return;
+    }
+
+    // Read and send file
+    try {
+      stop_file_watcher();
+
+      file_path = resolved_path;
+      file_content = fs.readFileSync(file_path, 'utf-8');
+      display_name = path.basename(file_path);
+
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.webContents.send('file-content', file_content, display_name, false);
+        main_window.setTitle(display_name);
+        start_file_watcher();
+      }
+    } catch (err) {
+      if (main_window && !main_window.isDestroyed()) {
+        main_window.webContents.send('error', 'Failed to read file');
+      }
+    }
+  });
+
+  // Handle always-on-top toggle
+  ipcMain.on('toggle-always-on-top', () => {
+    if (!main_window || main_window.isDestroyed()) {
+      return;
+    }
+
+    const is_pinned = !main_window.isAlwaysOnTop();
+    main_window.setAlwaysOnTop(is_pinned);
+
+    // Update menu checkmark
+    const menu = Menu.getApplicationMenu();
+    if (menu) {
+      const pin_item = menu.getMenuItemById('pin-window');
+      if (pin_item) {
+        pin_item.checked = is_pinned;
+      }
+    }
+
+    // Notify renderer
+    if (main_window && !main_window.isDestroyed()) {
+      main_window.webContents.send('always-on-top-changed', is_pinned);
+    }
+  });
+
   const handled_quicklook = await maybe_handle_quicklook_setup();
   if (handled_quicklook) {
     return;
   }
 
-  if (is_mac && !is_cli_mode) {
-    const template = [
-      {
+  // Build menu for all platforms
+  const is_pdf_mode = !!pdf_output;
+  if (!is_cli_mode && !is_pdf_mode) {
+    const template = [];
+
+    // macOS-specific menu items
+    if (is_mac) {
+      template.push({
         label: app.name,
         submenu: [
           {
@@ -677,8 +857,45 @@ app.whenReady().then(async () => {
           { type: 'separator' },
           { role: 'quit' }
         ]
-      }
-    ];
+      });
+    }
+
+    // Window menu (all platforms)
+    template.push({
+      label: 'Window',
+      submenu: [
+        {
+          label: 'Pin Window',
+          type: 'checkbox',
+          id: 'pin-window',
+          accelerator: 'CmdOrCtrl+Shift+A',
+          checked: false,
+          click: () => {
+            if (!main_window || main_window.isDestroyed()) {
+              return;
+            }
+
+            const is_pinned = !main_window.isAlwaysOnTop();
+            main_window.setAlwaysOnTop(is_pinned);
+
+            // Update this menu item's checkmark
+            const menu = Menu.getApplicationMenu();
+            if (menu) {
+              const pin_item = menu.getMenuItemById('pin-window');
+              if (pin_item) {
+                pin_item.checked = is_pinned;
+              }
+            }
+
+            // Notify renderer
+            if (main_window && !main_window.isDestroyed()) {
+              main_window.webContents.send('always-on-top-changed', is_pinned);
+            }
+          }
+        }
+      ]
+    });
+
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   }
 
@@ -692,6 +909,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  stop_file_watcher();
   globalShortcut.unregisterAll();
   app.quit();
 });
