@@ -16,6 +16,9 @@
   --error-border: #c53030;
   --error-text: #742a2a;
   --shadow-color: rgba(0, 0, 0, 0.1);
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --overlay-content-bg: rgba(0, 0, 0, 0.5);
+  --overlay-text: #ffffff;
   --titlebar-height: 38px;
   --focus-ring-color: #0969da;
   --hover-bg: rgba(175, 184, 193, 0.2);
@@ -39,6 +42,9 @@
   --error-border: #d73a49;
   --error-text: #f97583;
   --shadow-color: rgba(0, 0, 0, 0.3);
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --overlay-content-bg: rgba(0, 0, 0, 0.5);
+  --overlay-text: #ffffff;
   --focus-ring-color: #58a6ff;
   --hover-bg: rgba(110, 118, 129, 0.2);
   --active-bg: rgba(88, 166, 255, 0.15);
@@ -66,9 +72,17 @@ body {
   left: 0;
   right: 0;
   z-index: 100;
-  display: flex;
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+/* Traffic lights spacer (left) */
+.titlebar-traffic-spacer {
+  width: 70px;
+  -webkit-app-region: drag;
 }
 
 /* TOC Toggle Button */
@@ -102,18 +116,147 @@ body {
   outline-offset: 2px;
 }
 
-/* Filename in titlebar */
+/* Filename in titlebar (center) */
 #filename {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   -webkit-app-region: drag;
   user-select: none;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Make titlebar spacer draggable */
-.titlebar-spacer {
-  -webkit-app-region: drag;
+/* Pin indicator (right) */
+#pin-indicator {
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  transition: opacity 0.2s ease;
+}
+
+#pin-indicator.visible {
+  opacity: 0.6;
+}
+
+/* TOC Layout - CSS Grid */
+#app-container {
+  display: grid;
+  grid-template-columns: minmax(200px, 250px) 1fr;
+  grid-template-areas: "sidebar content";
+  gap: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#toc-sidebar {
+  grid-area: sidebar;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border-color);
+  padding: 1rem;
+  background: var(--bg-color);
+  transition: transform 0.2s ease-in-out;
+  touch-action: pan-y;
+}
+
+/* TOC Hidden State */
+#toc-sidebar.toc-hidden {
+  transform: translateX(-100%);
+  position: absolute;
+  left: 0;
+  width: 0;
+  padding: 0;
+  border: none;
+}
+
+#app-container:has(#toc-sidebar.toc-hidden) {
+  grid-template-columns: 1fr;
+  grid-template-areas: "content";
+}
+
+/* TOC Tree Styles */
+#toc-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#toc-sidebar li {
+  margin: 0;
+  padding: 0;
+}
+
+#toc-sidebar a {
+  display: block;
+  padding: 0.375rem 0.5rem;
+  color: var(--text-color);
+  text-decoration: none;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+#toc-sidebar a:hover {
+  background: var(--hover-bg);
+}
+
+#toc-sidebar a:focus {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: -2px;
+}
+
+/* Active Heading Highlight */
+#toc-sidebar li.active > a {
+  background: var(--active-bg);
+  color: var(--active-text);
+  font-weight: 500;
+}
+
+/* Heading Level Indentation */
+#toc-sidebar li[aria-level="1"] { padding-left: 0; }
+#toc-sidebar li[aria-level="2"] { padding-left: 1rem; }
+#toc-sidebar li[aria-level="3"] { padding-left: 2rem; }
+#toc-sidebar li[aria-level="4"] { padding-left: 3rem; }
+#toc-sidebar li[aria-level="5"] { padding-left: 4rem; }
+#toc-sidebar li[aria-level="6"] { padding-left: 5rem; }
+
+/* Responsive - Narrow Screens */
+@media (max-width: 768px) {
+  #app-container {
+    grid-template-columns: 1fr;
+  }
+
+  #toc-sidebar {
+    position: fixed;
+    top: var(--titlebar-height);
+    left: 0;
+    height: calc(100% - var(--titlebar-height));
+    max-width: 80vw;
+    z-index: 1000;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  }
+
+  #toc-sidebar.toc-hidden {
+    transform: translateX(-100%);
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  #toc-sidebar {
+    transition: none;
+  }
+
+  #toc-sidebar a {
+    transition: none;
+  }
 }
 
 /* Content scroll area */
@@ -204,6 +347,36 @@ body {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
+/* Drop overlay */
+#drop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--overlay-bg);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#drop-overlay.visible {
+  display: flex;
+}
+
+.drop-overlay-content {
+  border: 3px dashed var(--link-color);
+  border-radius: 12px;
+  padding: 40px 60px;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--overlay-text);
+  background-color: var(--overlay-content-bg);
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Custom scrollbar (WebKit) */
 ::-webkit-scrollbar {
   width: 10px;
@@ -232,7 +405,7 @@ body {
 /* Selection */
 ::selection {
   background-color: var(--link-color);
-  color: #ffffff;
+  color: var(--overlay-text);
 }
 
 /* Loading state */
