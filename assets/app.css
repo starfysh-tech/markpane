@@ -57,23 +57,44 @@ body {
   left: 0;
   right: 0;
   z-index: 100;
-  display: flex;
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
 }
 
-/* Filename in titlebar */
+/* Traffic lights spacer (left) */
+.titlebar-traffic-spacer {
+  width: 70px;
+  -webkit-app-region: drag;
+}
+
+/* Filename in titlebar (center) */
 #filename {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   -webkit-app-region: drag;
   user-select: none;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Make titlebar spacer draggable */
-.titlebar-spacer {
-  -webkit-app-region: drag;
+/* Pin indicator (right) */
+#pin-indicator {
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  transition: opacity 0.2s ease;
+}
+
+#pin-indicator.visible {
+  opacity: 0.6;
 }
 
 /* Content scroll area */
@@ -161,6 +182,36 @@ body {
 /* Smooth transitions for theme changes */
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Drop overlay */
+#drop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#drop-overlay.visible {
+  display: flex;
+}
+
+.drop-overlay-content {
+  border: 3px dashed var(--link-color);
+  border-radius: 12px;
+  padding: 40px 60px;
+  font-size: 20px;
+  font-weight: 500;
+  color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  user-select: none;
 }
 
 /* Custom scrollbar (WebKit) */
