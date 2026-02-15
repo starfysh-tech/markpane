@@ -5,15 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Peekdown</title>
   <link rel="stylesheet" href="../assets/github-markdown.css">
+  <link rel="stylesheet" href="../assets/highlight-light.css">
+  <link rel="stylesheet" href="../assets/highlight-dark.css">
   <link rel="stylesheet" href="../assets/app.css">
 </head>
 <body>
-  <div class="titlebar-spacer"><span id="filename"></span></div>
+  <div class="titlebar-spacer">
+    <span id="filename"></span>
+    <span id="ai-badge" class="ai-badge" title="AI context file">AI</span>
+    <button id="toc-button" class="toc-button" title="Toggle Outline (Cmd+Shift+T)">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 3L14 3M2 8L14 8M2 13L14 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button id="pin-button" class="pin-button" title="Pin on Top (Cmd+Shift+P)">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 2L8 9M5 5L11 5M8 9L8 14M7 14L9 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Search bar -->
+  <div id="search-bar" class="search-bar hidden">
+    <input type="text" id="search-input" placeholder="Find in document..." />
+    <span id="search-counter" class="search-counter"></span>
+    <button id="search-prev" class="search-nav-button" title="Previous (Cmd+Shift+G)">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 10L4 6L8 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button id="search-next" class="search-nav-button" title="Next (Cmd+G)">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button id="search-close" class="search-close-button" title="Close (Escape)">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- TOC sidebar -->
+  <div id="toc-sidebar" class="toc-sidebar hidden">
+    <div class="toc-header">Outline</div>
+    <div id="toc-content" class="toc-content"></div>
+  </div>
+
   <div id="content" class="markdown-body"></div>
 
   <script src="../node_modules/markdown-it/dist/markdown-it.min.js"></script>
+  <script src="../node_modules/markdown-it-task-lists/dist/markdown-it-task-lists.min.js"></script>
   <script src="../node_modules/mermaid/dist/mermaid.min.js"></script>
   <script src="../node_modules/dompurify/dist/purify.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script type="module" src="renderer.js"></script>
 </body>
 </html>

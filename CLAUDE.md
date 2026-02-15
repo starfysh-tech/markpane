@@ -66,6 +66,14 @@ Quick Look extensions are ignored by macOS unless the host app and extension are
 - Check `window.matchMedia('(prefers-color-scheme: dark)').matches`
 - Re-render mermaid on theme change (original content stored in `data-original` attribute)
 
+**Copy affordances:**
+- `add_copy_buttons()` creates absolute-positioned copy buttons in `<pre>` blocks
+- Copy button appears on hover (`opacity: 0` -> `opacity: 1`)
+- Uses `navigator.clipboard.writeText()` with "Copied!" feedback (2s timeout)
+- Context menu via `ipcMain.on('context-menu')` shows "Copy" and "Copy as HTML" on text selection
+- Edit menu provides standard `{ role: 'copy' }` and `{ role: 'selectAll' }`
+- Copy buttons skip mermaid diagrams (check for `.mermaid` class)
+
 ## Security Requirements
 
 - `contextIsolation: true` / `nodeIntegration: false` - Never change these

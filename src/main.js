@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut, Menu } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, Menu, ipcMain } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -10,9 +10,13 @@ let main_window = null;
 let file_content = null;
 let error_message = null;
 let quicklook_debug = false;
+let preferences = null;
+let save_preferences_timeout = null;
+let file_watcher = null;
+let file_watch_debounce_timeout = null;
 
 // Parse CLI args
-const args = process.argv.slice(2);
+const args = process.argv.slice(app.isPackaged ? 1 : 2);
 let file_path = null;
 let pdf_output = null;
 let show_version = false;
@@ -63,6 +67,99 @@ Shortcuts:
 const is_mac = process.platform === 'darwin';
 const is_packaged = app.isPackaged;
 const is_help = args.includes('--help') || args.includes('-h');
+// AI context file patterns
+const ai_file_patterns = [
+  /^CLAUDE\.md$/i,
+  /^\.claude\/.*\.md$/i,
+  /^llms\.txt$/i,
+  /^llms-full\.txt$/i,
+  /^\.cursorrules$/i,
+  /^PROMPT\.md$/i,
+  /^AGENTS\.md$/i,
+  /^COPILOT\.md$/i,
+  /^\.github\/copilot-instructions\.md$/i,
+  /^rules\.md$/i,
+  /^\.windsurfrules$/i
+];
+
+function is_ai_context_file(file_path) {
+  if (!file_path) {
+    return false;
+  }
+
+  const basename = path.basename(file_path);
+  const relative_path = file_path.replace(/\\/g, '/');
+
+  return ai_file_patterns.some(pattern => {
+    if (pattern.test(basename)) {
+      return true;
+    }
+    if (pattern.test(relative_path)) {
+      return true;
+    }
+    // Check last part of path for .claude/**/*.md pattern
+    const parts = relative_path.split('/');
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (parts[i] === '.claude' && /\.md$/i.test(parts[parts.length - 1])) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
+function setup_file_watcher(watched_file_path) {
+  // Clean up existing watcher
+  if (file_watcher) {
+    file_watcher.close();
+    file_watcher = null;
+  }
+
+  if (file_watch_debounce_timeout) {
+    clearTimeout(file_watch_debounce_timeout);
+    file_watch_debounce_timeout = null;
+  }
+
+  if (!watched_file_path || !fs.existsSync(watched_file_path)) {
+    return;
+  }
+
+  try {
+    file_watcher = fs.watch(watched_file_path, (event_type) => {
+      // Debounce rapid file events (macOS fires duplicate events)
+      if (file_watch_debounce_timeout) {
+        clearTimeout(file_watch_debounce_timeout);
+      }
+
+      file_watch_debounce_timeout = setTimeout(() => {
+        // Handle rename event (file deletion/move)
+        if (event_type === 'rename') {
+          if (!fs.existsSync(watched_file_path)) {
+            console.log('Watched file deleted or moved:', watched_file_path);
+            if (file_watcher) {
+              file_watcher.close();
+              file_watcher = null;
+            }
+            return;
+          }
+        }
+
+        // Reload file content
+        if (main_window && !main_window.isDestroyed()) {
+          try {
+            const new_content = fs.readFileSync(watched_file_path, 'utf-8');
+            main_window.webContents.send('file-changed', new_content);
+          } catch (err) {
+            console.error('Failed to reload file:', err.message);
+          }
+        }
+      }, 200); // 200ms debounce
+    });
+  } catch (err) {
+    console.error('Failed to setup file watcher:', err.message);
+  }
+}
+
 
 // Handle help and version
 if ((args.length === 0 && !is_packaged) || is_help) {
@@ -76,6 +173,17 @@ if (show_version) {
 }
 
 const is_cli_mode = !!file_path || !!pdf_output || show_version || uninstall_quicklook_flag || uninstall_all_flag;
+
+// Register open-file handler BEFORE app.whenReady (macOS sends this during launch)
+app.on('open-file', (event, path_arg) => {
+  event.preventDefault();
+  if (main_window && !main_window.isDestroyed()) {
+    load_file(path_arg);
+  } else {
+    file_path = path_arg;
+  }
+});
+
 
 // Read input file
 if (!file_path) {
@@ -252,6 +360,238 @@ function remove_quicklook_state() {
   }
 }
 
+function load_preferences() {
+  try {
+    const prefs_path = path.join(app.getPath('userData'), 'preferences.json');
+    if (!fs.existsSync(prefs_path)) {
+      return {
+        window: { x: null, y: null, width: 900, height: 700, is_maximized: false },
+        last_file: null,
+        always_on_top: false,
+        toc_visible: false,
+        recent_files: []
+      };
+    }
+    return JSON.parse(fs.readFileSync(prefs_path, 'utf-8'));
+  } catch (err) {
+    console.warn('Failed to load preferences:', err && err.message ? err.message : err);
+    return {
+      window: { x: null, y: null, width: 900, height: 700, is_maximized: false },
+      last_file: null,
+      always_on_top: false,
+      toc_visible: false,
+      recent_files: []
+    };
+  }
+}
+
+function save_preferences() {
+  if (!preferences) {
+    return;
+  }
+  try {
+    const prefs_path = path.join(app.getPath('userData'), 'preferences.json');
+    fs.mkdirSync(path.dirname(prefs_path), { recursive: true });
+    fs.writeFileSync(prefs_path, JSON.stringify(preferences, null, 2));
+  } catch (err) {
+    console.warn('Failed to save preferences:', err && err.message ? err.message : err);
+  }
+}
+
+function save_preferences_debounced() {
+  if (save_preferences_timeout) {
+    clearTimeout(save_preferences_timeout);
+  }
+  save_preferences_timeout = setTimeout(() => {
+    save_preferences();
+    save_preferences_timeout = null;
+  }, 500);
+}
+
+function add_to_recent_files(file_path_arg) {
+  if (!preferences || !file_path_arg) {
+    return;
+  }
+
+  const abs_path = path.resolve(file_path_arg);
+
+  // Remove duplicates (case-insensitive on macOS)
+  preferences.recent_files = preferences.recent_files.filter(f =>
+    path.resolve(f).toLowerCase() !== abs_path.toLowerCase()
+  );
+
+  // Add to front
+  preferences.recent_files.unshift(abs_path);
+
+  // Keep max 10 recent files
+  if (preferences.recent_files.length > 10) {
+    preferences.recent_files = preferences.recent_files.slice(0, 10);
+  }
+
+  save_preferences_debounced();
+  rebuild_menu();
+}
+
+function load_file(new_path) {
+  if (!fs.existsSync(new_path)) {
+    dialog.showErrorBox('File Not Found', `File not found: ${new_path}`);
+    return;
+  }
+
+  try {
+    file_content = fs.readFileSync(new_path, 'utf-8');
+    file_path = new_path;
+    display_name = path.basename(new_path);
+
+    if (main_window && !main_window.isDestroyed()) {
+      main_window.setTitle(display_name);
+      main_window.webContents.send('file-content', file_content, display_name, false);
+      add_to_recent_files(new_path);
+
+      // Update last_file in preferences
+      if (preferences) {
+        preferences.last_file = new_path;
+        save_preferences_debounced();
+      }
+    }
+  } catch (err) {
+    dialog.showErrorBox('Read Error', `Failed to read file: ${err.message}`);
+  }
+}
+
+function rebuild_menu() {
+  if (!is_mac || is_cli_mode || !preferences) {
+    return;
+  }
+
+  const recent_files_submenu = preferences.recent_files
+    .filter(f => fs.existsSync(f))
+    .map(f => ({
+      label: path.basename(f),
+      sublabel: path.dirname(f),
+      click: () => load_file(f)
+    }));
+
+  // Add clear menu if there are recent files
+  if (recent_files_submenu.length > 0) {
+    recent_files_submenu.push(
+      { type: 'separator' },
+      {
+        label: 'Clear Recent Files',
+        click: () => {
+          if (preferences) {
+            preferences.recent_files = [];
+            save_preferences_debounced();
+            rebuild_menu();
+          }
+        }
+      }
+    );
+  } else {
+    recent_files_submenu.push({
+      label: 'No Recent Files',
+      enabled: false
+    });
+  }
+
+  const template = [
+    {
+      label: app.name,
+      submenu: [
+        {
+          label: 'Uninstall Quick Look…',
+          click: uninstall_quicklook
+        },
+        {
+          label: 'Uninstall Peekdown…',
+          click: uninstall_all
+        },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Recent Files',
+          submenu: recent_files_submenu
+        }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'copy' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Pin on Top',
+          type: 'checkbox',
+          checked: preferences.always_on_top,
+          accelerator: 'CommandOrControl+Shift+P',
+          click: toggle_pin
+        }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function track_window_state() {
+  if (!main_window || main_window.isDestroyed() || !preferences) {
+    return;
+  }
+
+  const update_window_bounds = () => {
+    if (!main_window || main_window.isDestroyed() || main_window.isMinimized()) {
+      return;
+    }
+    const bounds = main_window.getBounds();
+    preferences.window.x = bounds.x;
+    preferences.window.y = bounds.y;
+    preferences.window.width = bounds.width;
+    preferences.window.height = bounds.height;
+    preferences.window.is_maximized = main_window.isMaximized();
+    save_preferences_debounced();
+  };
+
+  main_window.on('resize', update_window_bounds);
+  main_window.on('move', update_window_bounds);
+  main_window.on('maximize', () => {
+    if (preferences) {
+      preferences.window.is_maximized = true;
+      save_preferences_debounced();
+    }
+  });
+  main_window.on('unmaximize', () => {
+    if (preferences) {
+      preferences.window.is_maximized = false;
+      save_preferences_debounced();
+    }
+  });
+}
+
+function toggle_pin() {
+  if (!main_window || main_window.isDestroyed()) {
+    return;
+  }
+  if (!preferences) {
+    return;
+  }
+  preferences.always_on_top = !preferences.always_on_top;
+  main_window.setAlwaysOnTop(preferences.always_on_top);
+  main_window.webContents.send('pin-state-changed', preferences.always_on_top);
+  save_preferences_debounced();
+
+  // Update menu
+  rebuild_menu();
+}
+
 function uninstall_quicklook() {
   if (!is_mac || !is_packaged) {
     dialog.showErrorBox('Quick Look Uninstall', 'Quick Look uninstall is only available in the packaged macOS app.');
@@ -340,13 +680,21 @@ function uninstall_all() {
 
   const app_path = get_app_bundle_path();
   if (app_path && fs.existsSync(app_path)) {
-    fs.rmSync(app_path, { recursive: true, force: true });
+    // Use shell rm to bypass Electron's ASAR interception
+    const result = spawnSync('rm', ['-rf', app_path], { stdio: 'ignore' });
+    if (result.status !== 0) {
+      throw new Error(`Failed to remove app at ${app_path}`);
+    }
   }
 }
 
 function copy_app_bundle(source_path, target_path) {
   if (fs.existsSync(target_path)) {
-    fs.rmSync(target_path, { recursive: true, force: true });
+    // Use shell rm to bypass Electron's ASAR interception
+    const result = spawnSync('rm', ['-rf', target_path], { stdio: 'ignore' });
+    if (result.status !== 0) {
+      throw new Error(`Failed to remove existing app at ${target_path}`);
+    }
   }
   fs.cpSync(source_path, target_path, { recursive: true });
 }
@@ -543,9 +891,14 @@ async function maybe_handle_quicklook_setup() {
 function create_window() {
   const is_pdf_mode = !!pdf_output;
 
-  main_window = new BrowserWindow({
-    width: 900,
-    height: 700,
+  // Load preferences only in non-PDF mode
+  if (!is_pdf_mode) {
+    preferences = load_preferences();
+  }
+
+  const window_config = {
+    width: preferences ? preferences.window.width : 900,
+    height: preferences ? preferences.window.height : 700,
     show: !is_pdf_mode,  // Hide window in PDF mode
     titleBarStyle: is_pdf_mode ? 'default' : 'hiddenInset',
     webPreferences: {
@@ -553,7 +906,30 @@ function create_window() {
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.js')
     }
-  });
+  };
+
+  // Restore window position if available
+  if (preferences && preferences.window.x !== null && preferences.window.y !== null) {
+    window_config.x = preferences.window.x;
+    window_config.y = preferences.window.y;
+  }
+
+  main_window = new BrowserWindow(window_config);
+
+  // Restore maximized state
+  if (preferences && preferences.window.is_maximized) {
+    main_window.maximize();
+  }
+
+  // Restore always-on-top state
+  if (preferences && preferences.always_on_top) {
+    main_window.setAlwaysOnTop(true);
+  }
+
+  // Track window state changes only in non-PDF mode
+  if (!is_pdf_mode) {
+    track_window_state();
+  }
 
   main_window.loadFile(path.join(__dirname, 'index.html'));
   main_window.setTitle(display_name);
@@ -573,7 +949,23 @@ function create_window() {
         dialog.showErrorBox('Error', error_message);
       }
     } else if (file_content) {
-      main_window.webContents.send('file-content', file_content, display_name, is_pdf_mode);
+      const is_ai_file = is_ai_context_file(file_path);
+      main_window.webContents.send('file-content', file_content, display_name, is_pdf_mode, is_ai_file);
+
+      // Setup file watcher for AI context files (not in PDF mode)
+      if (is_ai_file && !is_pdf_mode) {
+        setup_file_watcher(file_path);
+      }
+
+      // Add to recent files if not in PDF mode
+      if (!is_pdf_mode && file_path) {
+        add_to_recent_files(file_path);
+      }
+
+      // Send initial pin state to renderer
+      if (!is_pdf_mode && preferences) {
+        main_window.webContents.send('pin-state-changed', preferences.always_on_top);
+      }
 
       if (is_pdf_mode) {
         // Wait for mermaid diagrams to render (ELK renderer is slow)
@@ -619,9 +1011,58 @@ function create_window() {
   }
 
   main_window.on('closed', () => {
+    // Clean up file watcher
+    if (file_watcher) {
+      file_watcher.close();
+      file_watcher = null;
+    }
+    if (file_watch_debounce_timeout) {
+      clearTimeout(file_watch_debounce_timeout);
+      file_watch_debounce_timeout = null;
+    }
     main_window = null;
   });
 }
+
+// Register IPC handlers (must be before app.whenReady for renderer access)
+ipcMain.on('toggle-pin', () => {
+  toggle_pin();
+});
+
+ipcMain.on('set-toc-visible', (_event, is_visible) => {
+  if (preferences) {
+    preferences.toc_visible = is_visible;
+    save_preferences_debounced();
+  }
+});
+
+ipcMain.handle('get-toc-visible', () => {
+  return preferences ? preferences.toc_visible : false;
+});
+
+ipcMain.on('context-menu', (event, data) => {
+  const { selection_text, has_selection } = data;
+  if (!has_selection || !selection_text) {
+    return;
+  }
+
+  const context_menu = Menu.buildFromTemplate([
+    {
+      label: 'Copy',
+      role: 'copy'
+    },
+    {
+      label: 'Copy as HTML',
+      click: () => {
+        if (main_window && !main_window.isDestroyed()) {
+          main_window.webContents.send('copy-as-html');
+        }
+      }
+    }
+  ]);
+
+  context_menu.popup({ window: BrowserWindow.fromWebContents(event.sender) });
+});
 
 app.whenReady().then(async () => {
   if (uninstall_quicklook_flag) {
@@ -655,6 +1096,13 @@ app.whenReady().then(async () => {
           },
           { type: 'separator' },
           { role: 'quit' }
+        ]
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'copy' },
+          { role: 'selectAll' }
         ]
       }
     ];

@@ -1,0 +1,55 @@
+/*!
+  Theme: GitHub Dark
+  Description: Dark theme as seen on github.com
+  Author: github.com
+  Maintainer: @Hirse
+  Updated: 2021-05-15
+
+  Outdated base version: https://github.com/primer/github-syntax-dark
+  Current colors taken from GitHub's CSS
+*/
+
+/* Scoped under .theme-dark for Electron app */
+.theme-dark pre code.hljs { display: block; overflow-x: auto; padding: 1em; }
+.theme-dark code.hljs { padding: 3px 5px; }
+.theme-dark .hljs { color: #c9d1d9; background: #0d1117; }
+.theme-dark .hljs-doctag,
+.theme-dark .hljs-keyword,
+.theme-dark .hljs-meta .hljs-keyword,
+.theme-dark .hljs-template-tag,
+.theme-dark .hljs-template-variable,
+.theme-dark .hljs-type,
+.theme-dark .hljs-variable.language_ { color: #ff7b72; }
+.theme-dark .hljs-title,
+.theme-dark .hljs-title.class_,
+.theme-dark .hljs-title.class_.inherited__,
+.theme-dark .hljs-title.function_ { color: #d2a8ff; }
+.theme-dark .hljs-attr,
+.theme-dark .hljs-attribute,
+.theme-dark .hljs-literal,
+.theme-dark .hljs-meta,
+.theme-dark .hljs-number,
+.theme-dark .hljs-operator,
+.theme-dark .hljs-selector-attr,
+.theme-dark .hljs-selector-class,
+.theme-dark .hljs-selector-id,
+.theme-dark .hljs-variable { color: #79c0ff; }
+.theme-dark .hljs-meta .hljs-string,
+.theme-dark .hljs-regexp,
+.theme-dark .hljs-string { color: #a5d6ff; }
+.theme-dark .hljs-built_in,
+.theme-dark .hljs-symbol { color: #ffa657; }
+.theme-dark .hljs-code,
+.theme-dark .hljs-comment,
+.theme-dark .hljs-formula { color: #8b949e; }
+.theme-dark .hljs-name,
+.theme-dark .hljs-quote,
+.theme-dark .hljs-selector-pseudo,
+.theme-dark .hljs-selector-tag { color: #7ee787; }
+.theme-dark .hljs-subst { color: #c9d1d9; }
+.theme-dark .hljs-section { color: #1f6feb; font-weight: 700; }
+.theme-dark .hljs-bullet { color: #f2cc60; }
+.theme-dark .hljs-emphasis { color: #c9d1d9; font-style: italic; }
+.theme-dark .hljs-strong { color: #c9d1d9; font-weight: 700; }
+.theme-dark .hljs-addition { color: #aff5b4; background-color: #033a16; }
+.theme-dark .hljs-deletion { color: #ffdcd7; background-color: #67060c; }

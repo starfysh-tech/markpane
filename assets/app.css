@@ -70,10 +70,65 @@ body {
   -webkit-app-region: drag;
   user-select: none;
 }
+/* AI badge */
+.ai-badge {
+  display: none;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--link-color);
+  background-color: var(--code-bg);
+  border: 1px solid var(--link-color);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  -webkit-app-region: no-drag;
+  user-select: none;
+  letter-spacing: 0.5px;
+}
 
-/* Make titlebar spacer draggable */
-.titlebar-spacer {
-  -webkit-app-region: drag;
+/* Pin button */
+.pin-button {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  -webkit-app-region: no-drag;
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: color 0.2s ease, transform 0.2s ease;
+  border-radius: 4px;
+}
+
+.pin-button:hover {
+  color: var(--text-color);
+  background-color: var(--code-bg);
+}
+
+.pin-button:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.pin-button.pinned {
+  color: var(--link-color);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.pin-button.pinned:hover {
+  color: var(--link-color);
+}
+
+.pin-button.pinned:active {
+  transform: translateY(-50%) rotate(45deg) scale(0.95);
+}
+
+.pin-button svg {
+  display: block;
 }
 
 /* Content scroll area */
@@ -95,6 +150,11 @@ body {
   max-width: 980px;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+/* Code block syntax highlighting */
+pre code.hljs {
+  border-radius: 6px;
 }
 
 /* Mermaid diagrams */
@@ -173,6 +233,241 @@ body {
   font-style: italic;
 }
 
+/* TOC button */
+.toc-button {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  -webkit-app-region: no-drag;
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: color 0.2s ease, background-color 0.2s ease;
+  border-radius: 4px;
+}
+
+.toc-button:hover {
+  color: var(--text-color);
+  background-color: var(--code-bg);
+}
+
+.toc-button.active {
+  color: var(--link-color);
+}
+
+.toc-button svg {
+  display: block;
+}
+
+/* Search bar */
+.search-bar {
+  position: fixed;
+  top: 38px;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background-color: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  z-index: 99;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.search-bar.hidden {
+  display: none;
+}
+
+#search-input {
+  flex: 1;
+  background-color: var(--code-block-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: var(--text-color);
+  font-size: 13px;
+  outline: none;
+}
+
+#search-input:focus {
+  border-color: var(--link-color);
+}
+
+.search-counter {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 80px;
+  text-align: right;
+}
+
+.search-nav-button,
+.search-close-button {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.search-nav-button:hover,
+.search-close-button:hover {
+  color: var(--text-color);
+  background-color: var(--code-bg);
+}
+
+.search-nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Search highlights */
+mark.search-highlight {
+  background-color: rgba(255, 235, 59, 0.4);
+  color: inherit;
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+.theme-dark mark.search-highlight {
+  background-color: rgba(255, 235, 59, 0.3);
+}
+
+mark.search-highlight.active {
+  background-color: rgba(255, 193, 7, 0.6);
+}
+
+.theme-dark mark.search-highlight.active {
+  background-color: rgba(255, 193, 7, 0.5);
+}
+
+/* TOC sidebar */
+.toc-sidebar {
+  position: fixed;
+  top: 38px;
+  left: 0;
+  width: 200px;
+  height: calc(100vh - 38px);
+  background-color: var(--code-block-bg);
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  z-index: 98;
+  transition: transform 0.3s ease;
+}
+
+.toc-sidebar.hidden {
+  transform: translateX(-100%);
+}
+
+.toc-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 12px 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.toc-content {
+  padding: 8px 0;
+}
+
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc-item {
+  margin: 0;
+  padding: 0;
+}
+
+.toc-link {
+  display: block;
+  padding: 6px 16px;
+  font-size: 13px;
+  color: var(--text-color);
+  text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toc-link:hover {
+  background-color: var(--code-bg);
+}
+
+.toc-item.active > .toc-link {
+  color: var(--link-color);
+  font-weight: 500;
+}
+
+/* TOC indentation levels */
+.toc-level-1 .toc-link { padding-left: 16px; }
+.toc-level-2 .toc-link { padding-left: 28px; font-size: 12px; }
+.toc-level-3 .toc-link { padding-left: 40px; font-size: 12px; }
+.toc-level-4 .toc-link { padding-left: 52px; font-size: 11px; }
+.toc-level-5 .toc-link { padding-left: 64px; font-size: 11px; }
+.toc-level-6 .toc-link { padding-left: 76px; font-size: 11px; }
+
+.toc-empty {
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Content margin when TOC is open */
+#content.toc-open {
+  margin-left: 200px;
+  transition: margin-left 0.3s ease;
+}
+
+/* Copy button */
+.copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: var(--code-block-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+pre:hover .copy-button {
+  opacity: 1;
+}
+
+.copy-button:hover {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.copy-button.copied {
+  color: var(--link-color);
+  border-color: var(--link-color);
+}
+
 /* Print styles */
 @media print {
   body {
@@ -185,10 +480,16 @@ body {
     display: none;
   }
 
+  .search-bar,
+  .toc-sidebar {
+    display: none;
+  }
+
   #content {
     height: auto;
     overflow: visible;
     padding-top: 20px;
+    margin-left: 0 !important;
   }
 
   .mermaid {
@@ -213,7 +514,8 @@ body {
     break-after: avoid;
   }
 
-  .no-print {
+  .no-print,
+  .copy-button {
     display: none;
   }
 }
