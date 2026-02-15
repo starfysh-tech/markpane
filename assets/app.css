@@ -42,7 +42,6 @@ body {
   padding: 0;
   background-color: var(--bg-color);
   color: var(--text-color);
-  transition: background-color 0.3s ease, color 0.3s ease;
   overflow: hidden;
   height: 100vh;
 }
@@ -185,11 +184,6 @@ pre code.hljs {
   font-weight: 600;
   margin-bottom: 8px;
   font-size: 16px;
-}
-
-/* Smooth transitions for theme changes */
-* {
-  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 /* Custom scrollbar (WebKit) */

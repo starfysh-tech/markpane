@@ -15,7 +15,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController, WKN
     override func loadView() {
         logger.log("loadView start")
         let background = NSVisualEffectView()
-        background.material = .hudWindow
+        background.material = .popover
         background.blendingMode = .behindWindow
         background.state = .active
         background.translatesAutoresizingMaskIntoConstraints = false
