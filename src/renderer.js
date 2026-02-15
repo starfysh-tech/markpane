@@ -18,6 +18,12 @@ if (window.markdownitTaskLists) {
 // Enable strikethrough support
 md.enable('strikethrough');
 
+// Module-level cache for scroll tracking
+let cached_headings = [];  // { element, offset_top, id }
+let active_toc_li = null;
+let raf_pending = false;
+let resize_timer = null;
+
 // Store default fence renderer
 const default_fence = md.renderer.rules.fence.bind(md.renderer.rules);
 
@@ -150,6 +156,7 @@ function extract_heading_text(heading) {
 
 // Extract headings and generate TOC
 function extract_and_render_toc(content_element) {
+  active_toc_li = null;
   const toc_container = document.getElementById('toc-sidebar');
   if (!toc_container) return;
 
@@ -181,41 +188,39 @@ function extract_and_render_toc(content_element) {
   });
 
   // Build TOC HTML
-  const toc_html = build_toc_tree(toc_items);
+  const toc_html = '<ul role="group">' + toc_items.map((item, index) =>
+    `<li role="treeitem" aria-level="${item.level}" tabindex="${index === 0 ? '0' : '-1'}">` +
+    `<a href="#${item.id}" title="${item.text}">${item.text}</a></li>`
+  ).join('') + '</ul>';
 
   // Sanitize and inject
   const clean_toc = DOMPurify.sanitize(toc_html, {
     ALLOWED_TAGS: ['ul', 'li', 'a'],
-    ALLOWED_ATTR: ['href', 'role', 'aria-expanded', 'aria-level', 'tabindex', 'class'],
+    ALLOWED_ATTR: ['href', 'role', 'aria-level', 'tabindex', 'class', 'title'],
     SANITIZE_NAMED_PROPS: true
   });
 
   toc_container.innerHTML = clean_toc;
+
+  // Cache heading positions for scroll tracking
+  cached_headings = toc_items.map(item => ({
+    element: content_element.querySelector(`#${CSS.escape(item.id)}`),
+    offset_top: 0,
+    id: item.id
+  })).filter(h => h.element !== null);
 }
 
-// Build nested TOC tree from flat list
-function build_toc_tree(items) {
-  if (items.length === 0) return '';
-
-  let html = '<ul role="group">';
-
-  items.forEach((item, index) => {
-    const is_first = index === 0;
-    const tabindex = is_first ? '0' : '-1';
-
-    html += `
-      <li role="treeitem" aria-level="${item.level}" tabindex="${tabindex}">
-        <a href="#${item.id}" title="${item.text}">${item.text}</a>
-      </li>
-    `;
-  });
-
-  html += '</ul>';
-  return html;
+// Invalidate heading position cache
+function invalidate_heading_cache() {
+  const content_el = document.getElementById('content');
+  if (!content_el) return;
+  const container_offset = content_el.offsetTop;
+  for (const entry of cached_headings) {
+    entry.offset_top = entry.element.offsetTop - container_offset;
+  }
 }
 
 // Throttled scroll tracking for TOC active state
-let scroll_timeout = null;
 let scroll_controller = null;
 
 function setup_scroll_tracking() {
@@ -223,6 +228,7 @@ function setup_scroll_tracking() {
   if (scroll_controller) {
     scroll_controller.abort();
   }
+  clearTimeout(resize_timer);
   scroll_controller = new AbortController();
 
   const content_element = document.getElementById('content');
@@ -230,45 +236,51 @@ function setup_scroll_tracking() {
 
   if (!content_element || !toc_container) return;
 
-  content_element.addEventListener('scroll', () => {
-    if (scroll_timeout) return;
+  function update_active_heading() {
+    raf_pending = false;
 
-    scroll_timeout = setTimeout(() => {
-      scroll_timeout = null;
+    if (cached_headings.length === 0) return;
 
-      // Find all headings with IDs
-      const headings = Array.from(content_element.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]'));
-      if (headings.length === 0) return;
+    // Find closest heading to viewport top
+    const scroll_top = content_element.scrollTop;
+    let active_id = cached_headings[0].id;
 
-      // Find closest heading to viewport top
-      const scroll_top = content_element.scrollTop;
-      let active_heading = headings[0];
-
-      for (const heading of headings) {
-        const rect = heading.getBoundingClientRect();
-        const content_rect = content_element.getBoundingClientRect();
-        const relative_top = rect.top - content_rect.top + scroll_top;
-
-        if (relative_top <= scroll_top + 100) {
-          active_heading = heading;
-        } else {
-          break;
-        }
+    for (const heading of cached_headings) {
+      if (heading.offset_top <= scroll_top + 100) {
+        active_id = heading.id;
+      } else {
+        break;
       }
+    }
 
-      // Update active class in TOC
-      const active_id = active_heading.getAttribute('id');
-      toc_container.querySelectorAll('li').forEach(li => li.classList.remove('active'));
-
-      const active_link = toc_container.querySelector(`a[href="#${active_id}"]`);
-      if (active_link) {
-        const active_li = active_link.closest('li');
-        active_li.classList.add('active');
+    // Update active class in TOC - only toggle 2 elements
+    const new_active_link = toc_container.querySelector(`a[href="#${active_id}"]`);
+    if (new_active_link) {
+      const new_active_li = new_active_link.closest('li');
+      if (new_active_li !== active_toc_li) {
+        if (active_toc_li) {
+          active_toc_li.classList.remove('active');
+        }
+        new_active_li.classList.add('active');
+        active_toc_li = new_active_li;
 
         // Scroll TOC to show active item
-        active_li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        active_toc_li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
-    }, 16); // 60 FPS
+    }
+  }
+
+  content_element.addEventListener('scroll', () => {
+    if (!raf_pending) {
+      raf_pending = true;
+      requestAnimationFrame(update_active_heading);
+    }
+  }, { signal: scroll_controller.signal });
+
+  // Invalidate cache on window resize (debounced)
+  window.addEventListener('resize', () => {
+    clearTimeout(resize_timer);
+    resize_timer = setTimeout(invalidate_heading_cache, 150);
   }, { signal: scroll_controller.signal });
 }
 
@@ -398,6 +410,9 @@ ${escaped_frontmatter}
 
   // Render mermaid diagrams
   await render_mermaid();
+
+  // Invalidate heading cache after mermaid rendering shifts positions
+  invalidate_heading_cache();
 }
 
 // Show error message
@@ -449,23 +464,21 @@ function init() {
     show_error(message);
   });
 
-  // Toggle TOC sidebar on Cmd+Shift+O
-  window.electronAPI.onToggleToc(() => {
+  // Toggle TOC sidebar
+  function toggle_toc() {
     const toc_sidebar = document.getElementById('toc-sidebar');
     if (toc_sidebar) {
       toc_sidebar.classList.toggle('toc-hidden');
     }
-  });
+  }
+
+  // Toggle TOC sidebar on Cmd+Shift+O
+  window.electronAPI.onToggleToc(toggle_toc);
 
   // Toggle TOC with button click
   const toc_toggle_btn = document.getElementById('toc-toggle');
   if (toc_toggle_btn) {
-    toc_toggle_btn.addEventListener('click', () => {
-      const toc_sidebar = document.getElementById('toc-sidebar');
-      if (toc_sidebar) {
-        toc_sidebar.classList.toggle('toc-hidden');
-      }
-    });
+    toc_toggle_btn.addEventListener('click', toggle_toc);
   }
 }
 
