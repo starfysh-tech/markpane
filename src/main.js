@@ -560,7 +560,7 @@ function create_window() {
   main_window = new BrowserWindow({
     width: 900,
     height: 700,
-    show: !is_pdf_mode,  // Hide window in PDF mode
+    show: false,  // Don't show until ready
     titleBarStyle: is_pdf_mode ? 'default' : 'hiddenInset',
     webPreferences: {
       contextIsolation: true,
@@ -571,6 +571,13 @@ function create_window() {
 
   main_window.loadFile(path.join(__dirname, 'index.html'));
   main_window.setTitle(display_name);
+
+  // Show window immediately when ready (no fade-in)
+  if (!is_pdf_mode) {
+    main_window.once('ready-to-show', () => {
+      main_window.show();
+    });
+  }
 
   // Forward renderer console to main process
   main_window.webContents.on('console-message', (event, level, message) => {
