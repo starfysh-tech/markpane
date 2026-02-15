@@ -8,12 +8,23 @@ const md = window.markdownit({
 // Store default fence renderer
 const default_fence = md.renderer.rules.fence.bind(md.renderer.rules);
 
-// Custom fence: convert ```mermaid to <div class="mermaid">
+// Custom fence: handle mermaid and syntax highlighting
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx];
-  if (token.info.trim() === 'mermaid') {
+  const info = (token.info || '').trim();
+  const lang = info.split(/\s+/)[0];
+
+  // Mermaid blocks
+  if (lang === 'mermaid') {
     return `<div class="mermaid">${md.utils.escapeHtml(token.content)}</div>`;
   }
+
+  // Code blocks with language - add classes for highlight.js
+  if (lang) {
+    token.attrJoin('class', `language-${lang}`);
+    token.attrJoin('class', 'hljs');
+  }
+
   return default_fence(tokens, idx, options, env, self);
 };
 
