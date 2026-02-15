@@ -1,5 +1,9 @@
 // Initialize markdown-it with custom fence renderer
-const md = window.markdownit({ html: true });
+const md = window.markdownit({
+  html: true,
+  linkify: true,
+  typographer: true
+});
 
 // Store default fence renderer
 const default_fence = md.renderer.rules.fence.bind(md.renderer.rules);
