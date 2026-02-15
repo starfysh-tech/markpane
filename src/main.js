@@ -1,14 +1,10 @@
-const { app, BrowserWindow, dialog, Menu, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, dialog, Menu, ipcMain, shell } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 
-let display_name = 'MarkPane';
-let main_window = null;
-let file_content = null;
-let error_message = null;
 let quicklook_debug = false;
 
 // Parse CLI args
@@ -233,18 +229,7 @@ function load_window_bounds() {
     if (!fs.existsSync(bounds_path)) {
       return null;
     }
-    const bounds = JSON.parse(fs.readFileSync(bounds_path, 'utf-8'));
-
-    // Validate bounds against connected displays
-    const displays = screen.getAllDisplays();
-    const is_visible = displays.some(display => {
-      const area = display.workArea;
-      return bounds.x >= area.x && bounds.y >= area.y &&
-             bounds.x + bounds.width <= area.x + area.width &&
-             bounds.y + bounds.height <= area.y + area.height;
-    });
-
-    return is_visible ? bounds : null;
+    return JSON.parse(fs.readFileSync(bounds_path, 'utf-8'));
   } catch (err) {
     return null;
   }
@@ -254,6 +239,108 @@ function save_window_bounds(bounds) {
   const bounds_path = path.join(app.getPath('userData'), 'window-bounds.json');
   fs.mkdirSync(path.dirname(bounds_path), { recursive: true });
   fs.writeFileSync(bounds_path, JSON.stringify(bounds, null, 2));
+}
+
+function load_settings() {
+  try {
+    const settings_path = path.join(app.getPath('userData'), 'settings.json');
+    if (!fs.existsSync(settings_path)) {
+      return { theme: 'system', bodyFont: 'San Francisco', codeFont: 'SF Mono' };
+    }
+    const settings = JSON.parse(fs.readFileSync(settings_path, 'utf-8'));
+    // Migrate old 'font' setting to bodyFont
+    if (settings.font && !settings.bodyFont) {
+      settings.bodyFont = settings.font === 'System Default' ? 'San Francisco' : settings.font;
+      delete settings.font;
+    }
+    // Set defaults if missing
+    if (!settings.bodyFont) settings.bodyFont = 'San Francisco';
+    if (!settings.codeFont) settings.codeFont = 'SF Mono';
+    return settings;
+  } catch (err) {
+    return { theme: 'system', bodyFont: 'San Francisco', codeFont: 'SF Mono' };
+  }
+}
+
+function save_settings(settings) {
+  const settings_path = path.join(app.getPath('userData'), 'settings.json');
+  fs.mkdirSync(path.dirname(settings_path), { recursive: true });
+  fs.writeFileSync(settings_path, JSON.stringify(settings, null, 2));
+}
+
+let cached_system_fonts = null;
+
+function enumerate_system_fonts() {
+  if (cached_system_fonts) {
+    return cached_system_fonts;
+  }
+
+  try {
+    // Write JXA script to temp file to avoid escaping issues
+    const temp_script = path.join(os.tmpdir(), 'markpane-fonts.js');
+    const jxa_script = `ObjC.import('Cocoa');
+const font_manager = $.NSFontManager.sharedFontManager;
+const families_array = font_manager.availableFontFamilies;
+const families_count = families_array.count;
+
+const body_fonts = [];
+const mono_fonts = [];
+
+const excluded_patterns = [/^\\./, /emoji/i, /symbol/i, /braille/i, /wingdings/i, /zapf dingbats/i];
+
+for (let i = 0; i < families_count; i++) {
+  const family = ObjC.unwrap(families_array.objectAtIndex(i));
+
+  if (excluded_patterns.some(pattern => pattern.test(family))) {
+    continue;
+  }
+
+  const font = $.NSFont.fontWithNameSize(family, 12.0);
+  if (!font || font.js === null || font.js === undefined) {
+    continue;
+  }
+
+  const traits = font_manager.traitsOfFont(font);
+  const is_monospace = (traits & (1 << 10)) !== 0;
+
+  if (is_monospace) {
+    mono_fonts.push(family);
+  } else {
+    body_fonts.push(family);
+  }
+}
+
+if (!body_fonts.includes('San Francisco')) {
+  body_fonts.push('San Francisco');
+}
+if (!mono_fonts.includes('SF Mono')) {
+  mono_fonts.push('SF Mono');
+}
+
+body_fonts.sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+mono_fonts.sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+
+JSON.stringify({ body: body_fonts, mono: mono_fonts });`;
+
+    fs.writeFileSync(temp_script, jxa_script);
+
+    const result = spawnSync('osascript', ['-l', 'JavaScript', temp_script], {
+      timeout: 5000,
+      encoding: 'utf-8'
+    });
+
+    if (result.error || result.status !== 0) {
+      console.error('[Font Enumeration] Failed:', result.stderr);
+      return null;
+    }
+
+    const fonts = JSON.parse(result.stdout.trim());
+    cached_system_fonts = fonts;
+    return fonts;
+  } catch (err) {
+    console.error('[Font Enumeration] Exception:', err);
+    return null;
+  }
 }
 
 function normalize_file_path(fp) {
@@ -271,7 +358,16 @@ function load_recent_files() {
       return [];
     }
     const files = JSON.parse(fs.readFileSync(recent_path, 'utf-8'));
-    return Array.isArray(files) ? files : [];
+    if (!Array.isArray(files)) return [];
+
+    // Migrate old format (array of objects) to new format (array of strings)
+    return files.map(item => {
+      if (typeof item === 'string') {
+        return item;
+      }
+      // Old format: {path, display_name, last_opened}
+      return item && item.path ? item.path : null;
+    }).filter(Boolean);
   } catch (err) {
     return [];
   }
@@ -288,14 +384,10 @@ function add_recent_file(fp) {
   let recent = load_recent_files();
 
   // Remove duplicates
-  recent = recent.filter(item => item.path !== normalized);
+  recent = recent.filter(item => item !== normalized);
 
   // Add to front
-  recent.unshift({
-    path: normalized,
-    display_name: path.basename(normalized),
-    last_opened: new Date().toISOString()
-  });
+  recent.unshift(normalized);
 
   // Cap at 10
   if (recent.length > 10) {
@@ -303,6 +395,7 @@ function add_recent_file(fp) {
   }
 
   save_recent_files(recent);
+  rebuild_app_menu();
 }
 
 function remove_quicklook_state() {
@@ -625,6 +718,7 @@ function open_file(fp) {
   );
 
   if (existing_window) {
+    if (existing_window.isDestroyed()) return;
     existing_window.focus();
     return;
   }
@@ -637,20 +731,20 @@ function create_window(target_file_path) {
   const is_pdf_mode = !!pdf_output;
 
   // Read file for this window
-  let local_file_content = null;
-  let local_error_message = null;
-  let local_display_name = 'MarkPane';
+  let file_content = null;
+  let error_message = null;
+  let display_name = 'MarkPane';
 
   if (target_file_path) {
     const normalized_path = normalize_file_path(target_file_path);
     if (!fs.existsSync(normalized_path)) {
-      local_error_message = `File not found: ${normalized_path}`;
+      error_message = `File not found: ${normalized_path}`;
     } else {
       try {
-        local_file_content = fs.readFileSync(normalized_path, 'utf-8');
-        local_display_name = path.basename(normalized_path);
+        file_content = fs.readFileSync(normalized_path, 'utf-8');
+        display_name = path.basename(normalized_path);
       } catch (err) {
-        local_error_message = `Failed to read file: ${err.message}`;
+        error_message = `Failed to read file: ${err.message}`;
       }
     }
   }
@@ -691,11 +785,8 @@ function create_window(target_file_path) {
     win.markpane_file_path = normalize_file_path(target_file_path);
   }
 
-  // Set main_window reference (for backward compatibility during transition)
-  main_window = win;
-
   win.loadFile(path.join(__dirname, 'index.html'));
-  win.setTitle(local_display_name);
+  win.setTitle(display_name);
 
   // Show window immediately when ready
   if (!is_pdf_mode) {
@@ -704,22 +795,43 @@ function create_window(target_file_path) {
     });
   }
 
+  // Open external links in system browser
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  // Prevent navigation to external URLs
+  win.webContents.on('will-navigate', (event, url) => {
+    const parsed_url = new URL(url);
+    if (parsed_url.protocol === 'http:' || parsed_url.protocol === 'https:') {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   // Forward renderer console to main process
   win.webContents.on('console-message', (event, level, message) => {
     console.log(`[Renderer] ${message}`);
   });
 
   win.webContents.on('did-finish-load', () => {
-    if (local_error_message) {
+    if (error_message) {
       if (is_pdf_mode) {
-        console.error(local_error_message);
+        console.error(error_message);
         app.quit();
       } else {
-        win.webContents.send('error', local_error_message);
-        dialog.showErrorBox('Error', local_error_message);
+        win.webContents.send('error', error_message);
+        dialog.showErrorBox('Error', error_message);
       }
-    } else if (local_file_content) {
-      win.webContents.send('file-content', local_file_content, local_display_name, is_pdf_mode);
+    } else if (file_content) {
+      const settings = load_settings();
+      const system_fonts = enumerate_system_fonts();
+      if (system_fonts) {
+        win.webContents.send('system-fonts', system_fonts);
+      }
+      win.webContents.send('file-content', file_content, display_name, is_pdf_mode);
+      win.webContents.send('settings', settings);
 
       if (is_pdf_mode) {
         setTimeout(async () => {
@@ -761,20 +873,7 @@ function create_window(target_file_path) {
 
     win.on('move', debounced_save);
     win.on('resize', debounced_save);
-
-    // Escape key handler (per-window)
-    win.webContents.on('before-input-event', (event, input) => {
-      if (input.key === 'Escape' && input.type === 'keyDown') {
-        win.close();
-      }
-    });
   }
-
-  win.on('closed', () => {
-    if (main_window === win) {
-      main_window = null;
-    }
-  });
 }
 
 function rebuild_app_menu() {
@@ -784,9 +883,9 @@ function rebuild_app_menu() {
 
   const recent_files = load_recent_files();
   const recent_submenu = recent_files.length > 0
-    ? recent_files.map(item => ({
-        label: item.display_name,
-        click: () => open_file(item.path)
+    ? recent_files.map(fp => ({
+        label: path.basename(fp),
+        click: () => open_file(fp)
       }))
     : [{ label: 'No Recent Files', enabled: false }];
 
@@ -868,6 +967,16 @@ function rebuild_app_menu() {
               focused.webContents.send('show-find');
             }
           }
+        },
+        {
+          label: 'Settings',
+          accelerator: 'CommandOrControl+,',
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused && !focused.isDestroyed()) {
+              focused.webContents.send('toggle-settings');
+            }
+          }
         }
       ]
     },
@@ -886,6 +995,28 @@ ipcMain.on('find-text', (event, query) => {
 
 ipcMain.on('stop-find', (event, action) => {
   event.sender.stopFindInPage(action || 'clearSelection');
+});
+
+// Settings IPC handlers
+ipcMain.on('save-settings', (event, settings) => {
+  save_settings(settings);
+  // Broadcast to all windows
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('settings-changed', settings);
+    }
+  });
+});
+
+// Window close handler
+ipcMain.on('close-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) win.close();
+});
+
+// Quit app handler
+ipcMain.on('quit-app', () => {
+  app.quit();
 });
 
 // Forward found-in-page events to renderer
@@ -925,6 +1056,14 @@ app.whenReady().then(async () => {
   }
 });
 
+// Flush window bounds before quit (debounce might drop last position)
+app.on('before-quit', () => {
+  const windows = BrowserWindow.getAllWindows();
+  if (windows.length > 0 && !windows[0].isDestroyed()) {
+    save_window_bounds(windows[0].getBounds());
+  }
+});
+
 // macOS: stay alive when all windows closed
 app.on('window-all-closed', () => {
   if (!is_mac) {
@@ -937,7 +1076,7 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     const recent_files = load_recent_files();
     if (recent_files.length > 0) {
-      open_file(recent_files[0].path);
+      open_file(recent_files[0]);
     } else {
       // Fallback: show open dialog
       dialog.showOpenDialog({
@@ -953,11 +1092,11 @@ app.on('activate', () => {
 });
 
 // macOS: handle files opened from Finder/dock
-app.on('open-file', (event, path) => {
+app.on('open-file', (event, file_path) => {
   event.preventDefault();
   if (app.isReady()) {
-    open_file(path);
+    open_file(file_path);
   } else {
-    app.whenReady().then(() => open_file(path));
+    app.whenReady().then(() => open_file(file_path));
   }
 });

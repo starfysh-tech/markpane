@@ -34,14 +34,51 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   onToggleToc: (callback) => {
-    ipcRenderer.on('toggle-toc', () => {
-      callback();
-    });
+    const handler = () => callback();
+    ipcRenderer.on('toggle-toc', handler);
+    return () => ipcRenderer.removeListener('toggle-toc', handler);
   },
 
   onShowFind: (callback) => {
-    ipcRenderer.on('show-find', () => {
-      callback();
-    });
+    const handler = () => callback();
+    ipcRenderer.on('show-find', handler);
+    return () => ipcRenderer.removeListener('show-find', handler);
+  },
+
+  onToggleSettings: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('toggle-settings', handler);
+    return () => ipcRenderer.removeListener('toggle-settings', handler);
+  },
+
+  // Settings APIs
+  onSettings: (callback) => {
+    const handler = (_event, settings) => callback(settings);
+    ipcRenderer.on('settings', handler);
+    return () => ipcRenderer.removeListener('settings', handler);
+  },
+
+  onSettingsChanged: (callback) => {
+    const handler = (_event, settings) => callback(settings);
+    ipcRenderer.on('settings-changed', handler);
+    return () => ipcRenderer.removeListener('settings-changed', handler);
+  },
+
+  onSystemFonts: (callback) => {
+    const handler = (_event, fonts) => callback(fonts);
+    ipcRenderer.on('system-fonts', handler);
+    return () => ipcRenderer.removeListener('system-fonts', handler);
+  },
+
+  saveSettings: (settings) => {
+    ipcRenderer.send('save-settings', settings);
+  },
+
+  closeWindow: () => {
+    ipcRenderer.send('close-window');
+  },
+
+  quitApp: () => {
+    ipcRenderer.send('quit-app');
   }
 });

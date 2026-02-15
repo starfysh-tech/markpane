@@ -67,6 +67,25 @@ What makes markpane special:
 
 > "The best tool is the one you don't notice using."
 
+### Task Lists
+
+Project checklist:
+- [x] Markdown rendering
+- [x] Mermaid diagrams
+- [x] Syntax highlighting
+- [ ] Plugin system
+- [ ] Collaborative editing
+
+### Strikethrough
+
+~~Old approach~~ → **New approach**
+
+Text with ~~deleted content~~ and corrections.
+
+### Auto-linking
+
+Visit the project: https://github.com/starfysh-tech/markpane
+
 ---
 
 *Rendered by markpane • [GitHub](https://github.com/starfysh-tech/markpane)*

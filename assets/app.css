@@ -6,6 +6,7 @@
   --text-color: #24292f;
   --heading-color: #1f2328;
   --text-secondary: #656d76;
+  --text-tertiary: #9ca3af;
   --link-color: #0969da;
   --border-color: #d0d7de;
   --code-bg: rgba(175, 184, 193, 0.2);
@@ -16,6 +17,14 @@
   --error-border: #c53030;
   --error-text: #742a2a;
   --shadow-color: rgba(0, 0, 0, 0.1);
+  --input-bg: #ffffff;
+  --dropdown-bg: #ffffff;
+  --hover-bg: #f6f8fa;
+  --selected-bg: #eef2ff;
+  --custom-code-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --custom-code-font-size: 14px;
+  --custom-body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --custom-body-font-size: 16px;
 }
 
 /* Dark Theme Variables */
@@ -24,6 +33,7 @@
   --text-color: #c9d1d9;
   --heading-color: #e6edf3;
   --text-secondary: #8b949e;
+  --text-tertiary: #6b7280;
   --link-color: #58a6ff;
   --border-color: #30363d;
   --code-bg: rgba(110, 118, 129, 0.4);
@@ -34,6 +44,10 @@
   --error-border: #d73a49;
   --error-text: #f97583;
   --shadow-color: rgba(0, 0, 0, 0.3);
+  --input-bg: #0d1117;
+  --dropdown-bg: #161b22;
+  --hover-bg: #21262d;
+  --selected-bg: #1c2c4c;
 }
 
 /* Body and Layout */
@@ -45,6 +59,26 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
   overflow: hidden;
   height: 100vh;
+}
+
+/* Custom code font override - uses CSS variables set dynamically by JS */
+#content pre,
+#content code,
+#content pre code,
+#content .mermaid-error,
+#content .frontmatter pre,
+#content .hljs,
+#content.markdown-body code,
+#content.markdown-body pre,
+#content.markdown-body pre code {
+  font-family: var(--custom-code-font) !important;
+  font-size: var(--custom-code-font-size) !important;
+}
+
+/* Custom body font override - uses CSS variables set dynamically by JS */
+#content.markdown-body {
+  font-family: var(--custom-body-font) !important;
+  font-size: var(--custom-body-font-size) !important;
 }
 
 /* Fixed titlebar spacer */
@@ -65,7 +99,7 @@ body {
 /* TOC Toggle Button */
 #toc-toggle {
   position: absolute;
-  left: 12px;
+  left: 80px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -93,6 +127,83 @@ body {
   outline-offset: 2px;
 }
 
+/* Settings Toggle Button */
+#settings-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  -webkit-app-region: no-drag;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+#settings-toggle:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+#settings-toggle:active {
+  background: var(--active-bg);
+}
+
+#settings-toggle:focus {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+/* Tooltips for titlebar buttons */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 35, 0.95);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 1000;
+  -webkit-app-region: no-drag;
+  letter-spacing: 0.02em;
+}
+
+[data-tooltip][data-tooltip-shortcut]:not([data-tooltip-shortcut=""])::after {
+  content: attr(data-tooltip) "\A" attr(data-tooltip-shortcut);
+  white-space: pre;
+  text-align: center;
+  line-height: 1.6;
+  padding: 7px 11px 8px 11px;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transition-delay: 0.5s;
+}
+
+.theme-dark [data-tooltip]::after {
+  background: rgba(20, 20, 25, 0.97);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
 /* Filename in titlebar */
 #filename {
   font-size: 13px;
@@ -107,14 +218,7 @@ body {
   -webkit-app-region: drag;
 }
 
-/* Content scroll area */
-#content {
-  padding: 20px;
-  padding-top: 58px;  /* 38px spacer + 20px padding */
-  overflow-y: auto;
-  height: 100vh;
-  box-sizing: border-box;
-}
+/* Content scroll area - old block removed, consolidated below with grid layout */
 
 /* Make content non-draggable */
 #content * {
@@ -189,6 +293,43 @@ body {
   word-break: break-word;
 }
 
+/* Task List Checkboxes */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 3px;
+  background-color: transparent;
+  cursor: pointer;
+  position: relative;
+  vertical-align: middle;
+  margin-right: 0.5em;
+}
+
+input[type="checkbox"]:checked {
+  background-color: var(--link-color);
+  border-color: var(--link-color);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Smooth transitions for theme changes */
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
@@ -238,43 +379,58 @@ body {
 /* TOC Layout - CSS Grid */
 #app-container {
   display: grid;
-  grid-template-columns: minmax(200px, 250px) 1fr;
+  grid-template-columns: 250px 1fr;
   grid-template-areas: "sidebar content";
   gap: 0;
   height: 100%;
   overflow: hidden;
+  transition: grid-template-columns 0.3s ease-in-out;
 }
 
 #toc-sidebar {
   grid-area: sidebar;
-  overflow-y: auto;
+  overflow: hidden;
   overflow-x: hidden;
   border-right: 1px solid var(--border-color);
-  padding: 1rem;
+  padding: 54px 1rem 1rem 1rem;  /* 38px titlebar + 16px spacing */
   background: var(--bg-color);
-  transition: transform 0.2s ease-in-out;
   touch-action: pan-y;
+  min-width: 0;
+  transition: visibility 0s 0s;
 }
 
 #content {
   grid-area: content;
+  width: 100%;  /* Override .markdown-body's margin: 0 auto shrink behavior */
+  padding: 20px;
+  padding-top: 58px;  /* 38px spacer + 20px padding */
+  padding-bottom: calc(100vh - 150px);  /* Allow last sections to scroll to top */
   overflow-y: auto;
   overflow-x: hidden;
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+/* Fix headings hidden behind titlebar on TOC click */
+#content h1, #content h2, #content h3, #content h4, #content h5, #content h6 {
+  scroll-margin-top: 58px;
 }
 
 /* TOC Hidden State */
-#toc-sidebar.toc-hidden {
-  transform: translateX(-100%);
-  position: absolute;
-  left: 0;
-  width: 0;
-  padding: 0;
-  border: none;
+#app-container:has(#toc-sidebar.toc-hidden) {
+  grid-template-columns: 0px 1fr;
+  grid-template-areas: "sidebar content";
 }
 
-#app-container:has(#toc-sidebar.toc-hidden) {
-  grid-template-columns: 1fr;
-  grid-template-areas: "content";
+#toc-sidebar.toc-hidden {
+  border-right-color: transparent;
+  visibility: hidden;
+  transition: visibility 0s 0.3s;  /* Hide after grid collapse animation */
+}
+
+/* Restore overflow-y only when sidebar is visible */
+#app-container:not(:has(#toc-sidebar.toc-hidden)) #toc-sidebar {
+  overflow-y: auto;
 }
 
 /* TOC Tree Styles */
@@ -344,6 +500,7 @@ body {
 @media (max-width: 768px) {
   #app-container {
     grid-template-columns: 1fr;
+    transition: none;  /* Mobile uses overlay pattern */
   }
 
   #toc-sidebar {
@@ -354,6 +511,7 @@ body {
     max-width: 80vw;
     z-index: 1000;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease-in-out;
   }
 
   #toc-sidebar.toc-hidden {
@@ -361,9 +519,267 @@ body {
   }
 }
 
+/* Find Bar */
+#find-bar {
+  position: fixed;
+  top: 50px;
+  right: 20px;
+  z-index: 200;
+  display: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  -webkit-app-region: no-drag;
+}
+
+#find-bar.visible {
+  display: flex;
+}
+
+#find-bar input {
+  border: 1px solid var(--border-color);
+  background: var(--code-bg);
+  color: var(--text-color);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  width: 200px;
+  outline: none;
+}
+
+#find-bar input:focus {
+  border-color: var(--link-color);
+}
+
+#find-bar .find-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 60px;
+  text-align: center;
+}
+
+#find-bar button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background-color 0.15s ease;
+}
+
+#find-bar button:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+/* Settings Panel */
+#settings-panel {
+  position: fixed;
+  top: 50px;
+  right: 20px;
+  z-index: 200;
+  display: none;
+  flex-direction: column;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  -webkit-app-region: no-drag;
+  min-width: 380px;
+  max-width: 480px;
+  overflow: visible;
+}
+
+#settings-panel.visible {
+  display: flex;
+}
+
+.settings-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+  padding: 14px 18px 12px 18px;
+  border-bottom: 1px solid var(--border-color);
+  letter-spacing: 0.02em;
+}
+
+.settings-section {
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-row-split {
+  flex-direction: column;
+}
+
+.settings-row label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.settings-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-row select {
+  border: 1px solid var(--border-color);
+  background: var(--code-block-bg);
+  color: var(--text-color);
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.settings-row select:hover {
+  background: var(--code-bg);
+}
+
+.settings-row select:focus {
+  border-color: var(--link-color);
+  background: var(--bg-color);
+}
+
+.settings-row .select-font {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-row .select-size {
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.settings-footer {
+  margin-top: auto;
+}
+
+.settings-separator {
+  height: 1px;
+  background: var(--border-color);
+  margin: 8px 0 0 0;
+}
+
+.settings-branding {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 10px 18px 12px 18px;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+}
+
+/* Custom Font Dropdowns */
+.custom-select {
+  position: relative;
+  width: 100%;
+  user-select: none;
+}
+
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.custom-select-trigger:hover {
+  border-color: var(--text-tertiary);
+}
+
+.custom-select-trigger:focus {
+  outline: none;
+  border-color: var(--link-color);
+}
+
+.custom-select-value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-select-arrow {
+  margin-left: 8px;
+  font-size: 10px;
+  opacity: 0.6;
+  transition: transform 0.2s;
+}
+
+.custom-select.open .custom-select-arrow {
+  transform: rotate(180deg);
+}
+
+.custom-select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--dropdown-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 2000;
+  display: none;
+}
+
+.custom-select.open .custom-select-dropdown {
+  display: block;
+}
+
+.custom-select-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.1s;
+}
+
+.custom-select-option:hover {
+  background: var(--hover-bg);
+}
+
+.custom-select-option.selected {
+  background: var(--selected-bg);
+  color: var(--link-color);
+}
+
+.custom-select-option.focused {
+  background: var(--hover-bg);
+}
+
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
-  #toc-sidebar {
+  #app-container {
     transition: none;
   }
 
