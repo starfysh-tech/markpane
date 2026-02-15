@@ -18,7 +18,7 @@ graph LR
 
 - **GitHub-style rendering** with syntax highlighting
 - **Mermaid diagrams** auto-rendered as SVG
-- **PDF export** via CLI: `peekdown file.md --pdf out.pdf`
+- **PDF export** via CLI: `markpane file.md --pdf out.pdf`
 - **Theme-aware** — follows macOS light/dark mode
 
 ## Quick Start
