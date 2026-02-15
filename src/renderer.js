@@ -216,27 +216,60 @@ function extract_toc() {
   return toc_items;
 }
 
-// Build TOC HTML tree
+// Build hierarchical TOC HTML tree
 function build_toc_html(items) {
   if (items.length === 0) {
-    return '<div class="toc-empty">No headings found</div>';
+    return '<div class="toc-empty">No headings found<div class="toc-empty-hint">Add headings (# Title) to enable navigation</div></div>';
   }
 
-  let html = '<ul role="group">';
+  let html = '';
+  let stack = [];  // Track nesting levels
   let first_item = true;
 
   items.forEach((item, index) => {
+    // Close groups for shallower levels
+    while (stack.length > 0 && stack[stack.length - 1] >= item.level) {
+      stack.pop();
+      html += '</ul></li>';
+    }
+
+    // Open new group if deeper
+    if (stack.length === 0 || stack[stack.length - 1] < item.level) {
+      if (stack.length === 0) {
+        html += '<ul role="group">';
+      } else {
+        html += '<ul role="group">';
+      }
+      stack.push(item.level);
+    }
+
     const tabindex = first_item ? '0' : '-1';
     first_item = false;
 
+    // Check if this item has children (next item is deeper)
+    const has_children = index < items.length - 1 && items[index + 1].level > item.level;
+    const aria_expanded = has_children ? 'aria-expanded="true"' : '';
+
     html += `
-      <li role="treeitem" aria-level="${item.level}" tabindex="${tabindex}" data-heading-id="${item.id}">
-        <a href="#${item.id}">${item.text}</a>
-      </li>
+      <li role="treeitem" ${aria_expanded} aria-level="${item.level}" tabindex="${tabindex}" data-heading-id="${item.id}">
+        <a href="#${item.id}" class="toc-link">${item.text}</a>
     `;
+
+    // Don't close li yet if it will have children
+    if (!has_children) {
+      html += '</li>';
+    }
   });
 
-  html += '</ul>';
+  // Close remaining open groups
+  while (stack.length > 0) {
+    stack.pop();
+    html += '</ul>';
+    if (stack.length > 0) {
+      html += '</li>';
+    }
+  }
+
   return html;
 }
 
