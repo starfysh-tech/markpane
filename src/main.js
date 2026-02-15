@@ -628,6 +628,29 @@ async function maybe_handle_quicklook_setup() {
   return true;
 }
 
+function toggle_always_on_top() {
+  if (!main_window || main_window.isDestroyed()) {
+    return;
+  }
+
+  const is_pinned = !main_window.isAlwaysOnTop();
+  main_window.setAlwaysOnTop(is_pinned);
+
+  // Update menu checkmark
+  const menu = Menu.getApplicationMenu();
+  if (menu) {
+    const pin_item = menu.getMenuItemById('pin-window');
+    if (pin_item) {
+      pin_item.checked = is_pinned;
+    }
+  }
+
+  // Notify renderer
+  if (main_window && !main_window.isDestroyed()) {
+    main_window.webContents.send('always-on-top-changed', is_pinned);
+  }
+}
+
 function create_window() {
   const is_pdf_mode = !!pdf_output;
 
@@ -808,28 +831,7 @@ app.whenReady().then(async () => {
   });
 
   // Handle always-on-top toggle
-  ipcMain.on('toggle-always-on-top', () => {
-    if (!main_window || main_window.isDestroyed()) {
-      return;
-    }
-
-    const is_pinned = !main_window.isAlwaysOnTop();
-    main_window.setAlwaysOnTop(is_pinned);
-
-    // Update menu checkmark
-    const menu = Menu.getApplicationMenu();
-    if (menu) {
-      const pin_item = menu.getMenuItemById('pin-window');
-      if (pin_item) {
-        pin_item.checked = is_pinned;
-      }
-    }
-
-    // Notify renderer
-    if (main_window && !main_window.isDestroyed()) {
-      main_window.webContents.send('always-on-top-changed', is_pinned);
-    }
-  });
+  ipcMain.on('toggle-always-on-top', toggle_always_on_top);
 
   const handled_quicklook = await maybe_handle_quicklook_setup();
   if (handled_quicklook) {
@@ -870,28 +872,7 @@ app.whenReady().then(async () => {
           id: 'pin-window',
           accelerator: 'CmdOrCtrl+Shift+A',
           checked: false,
-          click: () => {
-            if (!main_window || main_window.isDestroyed()) {
-              return;
-            }
-
-            const is_pinned = !main_window.isAlwaysOnTop();
-            main_window.setAlwaysOnTop(is_pinned);
-
-            // Update this menu item's checkmark
-            const menu = Menu.getApplicationMenu();
-            if (menu) {
-              const pin_item = menu.getMenuItemById('pin-window');
-              if (pin_item) {
-                pin_item.checked = is_pinned;
-              }
-            }
-
-            // Notify renderer
-            if (main_window && !main_window.isDestroyed()) {
-              main_window.webContents.send('always-on-top-changed', is_pinned);
-            }
-          }
+          click: toggle_always_on_top
         }
       ]
     });

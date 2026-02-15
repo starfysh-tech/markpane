@@ -110,7 +110,7 @@ if (content_element.scrollHeight > 0) {
 
 ## Acceptance Criteria
 
-- [ ] Bounds check added: `scrollHeight > 0`
+- [x] Bounds check added: `scrollHeight > 0`
 - [ ] Test: reload empty file, verify no NaN
 - [ ] Test: reload during render, verify scroll preserved
 - [ ] Test: reload normal file, verify scroll preserved

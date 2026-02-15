@@ -105,9 +105,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 ## Acceptance Criteria
 
-- [ ] Type validation on `openFile` parameter
-- [ ] Length limit on file paths (4096 chars)
-- [ ] Rate limiting on `toggleAlwaysOnTop` (500ms debounce)
+- [x] Type validation on `openFile` parameter
+- [x] Length limit on file paths (4096 chars)
+- [x] Rate limiting on `toggleAlwaysOnTop` (500ms debounce)
 - [ ] Test: send non-string to `openFile` → rejected
 - [ ] Test: send 10000-char path → rejected
 - [ ] Test: spam `toggleAlwaysOnTop` → throttled

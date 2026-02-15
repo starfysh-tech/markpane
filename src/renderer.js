@@ -1,3 +1,7 @@
+// Render guard to prevent concurrent renders
+let render_active = false;
+let render_pending = null;
+
 // Initialize markdown-it with custom fence renderer
 const md = window.markdownit({
   html: true,
@@ -140,63 +144,121 @@ function split_frontmatter(content) {
 
 // Render markdown content
 async function render_content(content) {
-  const content_element = document.getElementById('content');
+  // If a render is already in progress, queue this one
+  if (render_active) {
+    render_pending = content;
+    return;
+  }
 
-  // Split frontmatter from body
-  const { frontmatter, body } = split_frontmatter(content);
+  render_active = true;
 
-  // Render frontmatter section if present
-  let frontmatter_html = '';
-  if (frontmatter) {
-    const escaped_frontmatter = frontmatter
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    frontmatter_html = `
-      <section class="frontmatter">
-        <div class="frontmatter-title">Frontmatter</div>
-        <pre>---
+  try {
+    const content_element = document.getElementById('content');
+
+    // Split frontmatter from body
+    const { frontmatter, body } = split_frontmatter(content);
+
+    // Render frontmatter section if present
+    let frontmatter_html = '';
+    if (frontmatter) {
+      const escaped_frontmatter = frontmatter
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      frontmatter_html = `
+        <section class="frontmatter">
+          <div class="frontmatter-title">Frontmatter</div>
+          <pre>---
 ${escaped_frontmatter}
 ---</pre>
-      </section>
-    `;
-  }
+        </section>
+      `;
+    }
 
-  // Parse markdown body
-  const html = md.render(body);
+    // Parse markdown body
+    const html = md.render(body);
 
-  // Sanitize with DOMPurify
-  const clean_html = DOMPurify.sanitize(frontmatter_html + html, {
-    ADD_TAGS: ['div', 'section', 'pre', 'input'],
-    ADD_ATTR: ['class', 'data-original', 'type', 'disabled', 'checked']
-  });
-
-  // Inject to DOM
-  content_element.innerHTML = clean_html;
-
-  // Post-sanitization: ensure only checkbox inputs remain
-  const inputs = content_element.querySelectorAll('input');
-  inputs.forEach(input => {
-    if (input.type !== 'checkbox') input.remove();
-    if (!input.hasAttribute('disabled')) input.setAttribute('disabled', 'disabled');
-  });
-
-  // Apply syntax highlighting to code blocks
-  if (window.hljs) {
-    const code_blocks = content_element.querySelectorAll('pre code.hljs');
-    code_blocks.forEach((block) => {
-      window.hljs.highlightElement(block);
+    // Sanitize with DOMPurify
+    const clean_html = DOMPurify.sanitize(frontmatter_html + html, {
+      ADD_TAGS: ['div', 'section', 'pre', 'input'],
+      ADD_ATTR: ['class', 'data-original', 'type', 'disabled', 'checked']
     });
-  }
 
-  // Render mermaid diagrams
-  await render_mermaid();
+    // Inject to DOM
+    content_element.innerHTML = clean_html;
+
+    // Post-sanitization: ensure only checkbox inputs remain
+    const inputs = content_element.querySelectorAll('input');
+    inputs.forEach(input => {
+      if (input.type !== 'checkbox') input.remove();
+      if (!input.hasAttribute('disabled')) input.setAttribute('disabled', 'disabled');
+    });
+
+    // Apply syntax highlighting to code blocks
+    if (window.hljs) {
+      const code_blocks = content_element.querySelectorAll('pre code.hljs');
+      code_blocks.forEach((block) => {
+        window.hljs.highlightElement(block);
+      });
+    }
+
+    // Render mermaid diagrams
+    await render_mermaid();
+  } finally {
+    render_active = false;
+
+    // If a render was queued while we were processing, handle it now
+    if (render_pending !== null) {
+      const pending = render_pending;
+      render_pending = null;
+      await render_content(pending);
+    }
+  }
 }
 
 // Show error message
 function show_error(message) {
   const content_element = document.getElementById('content');
   content_element.innerHTML = `<div class="error-message">${DOMPurify.sanitize(message)}</div>`;
+}
+
+// Drag-and-drop file opening
+function setup_drag_drop() {
+  let drag_counter = 0;
+  const overlay = document.getElementById('drop-overlay');
+
+  document.body.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    drag_counter++;
+    overlay.classList.add('visible');
+  });
+
+  document.body.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    drag_counter--;
+    if (drag_counter === 0) {
+      overlay.classList.remove('visible');
+    }
+  });
+
+  document.body.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  document.body.addEventListener('drop', (e) => {
+    e.preventDefault();
+    drag_counter = 0;
+    overlay.classList.remove('visible');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      // Electron extension: file.path
+      if (file.path) {
+        window.electronAPI.openFile(file.path);
+      }
+    }
+  });
 }
 
 // Initialize
@@ -237,10 +299,42 @@ function init() {
     await render_content(content);
   });
 
+  // Auto-reload on file change
+  window.electronAPI.onFileChanged(async (content, filename) => {
+    if (is_pdf_mode) return;
+
+    // Save scroll position as ratio
+    const content_element = document.getElementById('content');
+    const scroll_ratio = content_element.scrollHeight > 0
+      ? content_element.scrollTop / content_element.scrollHeight
+      : 0;
+
+    // Update filename if provided
+    if (filename) {
+      document.getElementById('filename').textContent = filename;
+    }
+
+    // Re-render content
+    await render_content(content);
+
+    // Restore scroll position
+    const new_scroll_top = scroll_ratio * content_element.scrollHeight;
+    content_element.scrollTop = new_scroll_top;
+  });
+
   // Receive errors from main process
   window.electronAPI.onError((message) => {
     show_error(message);
   });
+
+  // Always-on-top indicator
+  window.electronAPI.onAlwaysOnTopChanged((is_pinned) => {
+    const indicator = document.getElementById('pin-indicator');
+    indicator.classList.toggle('visible', is_pinned);
+  });
+
+  // Setup drag-and-drop
+  setup_drag_drop();
 }
 
 init();

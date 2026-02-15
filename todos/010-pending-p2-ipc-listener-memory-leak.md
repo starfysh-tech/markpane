@@ -109,7 +109,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 ## Acceptance Criteria
 
-- [ ] `removeAllListeners()` called before each `on()`
+- [x] `removeAllListeners()` called before each `on()`
 - [ ] Test: call `onFileContent()` twice, verify only 1 listener
 - [ ] Test: hot reload in dev mode, verify no listener accumulation
 - [ ] Memory profiling shows no listener leaks

@@ -125,9 +125,9 @@ click: toggle_always_on_top
 
 ## Acceptance Criteria
 
-- [ ] Single `toggle_always_on_top()` function
-- [ ] IPC handler calls function
-- [ ] Menu click handler calls function
+- [x] Single `toggle_always_on_top()` function
+- [x] IPC handler calls function
+- [x] Menu click handler calls function
 - [ ] Test: keyboard shortcut toggles correctly
 - [ ] Test: menu item toggles correctly
 - [ ] Test: both update menu checkmark
