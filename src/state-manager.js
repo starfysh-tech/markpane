@@ -7,34 +7,34 @@ class StateManager {
     this.state = new Map();
     this.maxEntries = 1000;
     this.stateFile = path.join(app.getPath('userData'), 'toc-state.json');
+    this.saveTimeout = null;
     this.loadState();
   }
 
-  normalizeKey(filePath) {
-    const resolved = path.resolve(filePath);
+  normalizeKey(file_path) {
+    const resolved = path.resolve(file_path);
     try {
-      return fs.realpathSync(resolved);  // Resolves symlinks
+      return fs.realpathSync(resolved);
     } catch {
       return resolved;
     }
   }
 
-  getTocState(filePath) {
-    const key = this.normalizeKey(filePath);
+  getTocState(file_path) {
+    const key = this.normalizeKey(file_path);
     return this.state.get(key) || {};
   }
 
-  setTocState(filePath, tocState) {
-    const key = this.normalizeKey(filePath);
+  setTocState(file_path, toc_state) {
+    const key = this.normalizeKey(file_path);
 
-    // FIFO eviction
     if (this.state.size >= this.maxEntries && !this.state.has(key)) {
       const firstKey = this.state.keys().next().value;
       this.state.delete(firstKey);
     }
 
     this.state.set(key, {
-      ...tocState,
+      ...toc_state,
       lastModified: Date.now()
     });
 
@@ -42,7 +42,7 @@ class StateManager {
   }
 
   cleanup() {
-    const maxAge = 30 * 24 * 60 * 60 * 1000;  // 30 days
+    const maxAge = 30 * 24 * 60 * 60 * 1000;
     const now = Date.now();
 
     for (const [key, value] of this.state.entries()) {

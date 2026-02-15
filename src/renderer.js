@@ -1,43 +1,3 @@
-// GitHub-compatible slug generator for TOC IDs
-class SlugGenerator {
-  constructor() {
-    this.occurrences = new Map();
-  }
-
-  slug(text) {
-    // Normalize Unicode to NFC
-    const normalized = text.normalize('NFC');
-
-    // Generate base slug (GitHub algorithm)
-    const base = normalized
-      .toLowerCase()
-      .replace(/<[^>]*>/g, '')      // Strip HTML tags
-      .replace(/[^\w\s-]/g, '')      // Remove special chars except word, space, hyphen
-      .replace(/\s+/g, '-')          // Spaces to hyphens
-      .replace(/-+/g, '-')           // Collapse multiple hyphens
-      .replace(/^-|-$/g, '');        // Trim edge hyphens
-
-    // Handle empty slugs
-    if (!base) {
-      return `heading-${Math.random().toString(36).substr(2, 9)}`;
-    }
-
-    // Handle duplicates
-    if (!this.occurrences.has(base)) {
-      this.occurrences.set(base, 0);
-      return `user-content-${base}`;
-    }
-
-    const count = this.occurrences.get(base) + 1;
-    this.occurrences.set(base, count);
-    return `user-content-${base}-${count}`;
-  }
-
-  reset() {
-    this.occurrences.clear();
-  }
-}
-
 // Initialize markdown-it with custom fence renderer
 const md = window.markdownit({
   html: true,
@@ -178,122 +138,6 @@ function split_frontmatter(content) {
   return { frontmatter, body };
 }
 
-// Extract heading text (strips task-list checkboxes)
-function extract_heading_text(heading) {
-  const clone = heading.cloneNode(true);
-
-  // Remove task-list checkboxes from heading text
-  clone.querySelectorAll('input[type="checkbox"]').forEach(el => el.remove());
-
-  return clone.textContent.trim();
-}
-
-// Extract TOC from rendered DOM
-function extract_toc() {
-  const content_element = document.getElementById('content');
-  const headings = Array.from(content_element.querySelectorAll('h1, h2, h3, h4, h5, h6'));
-
-  if (headings.length === 0) {
-    return [];
-  }
-
-  const slugger = new SlugGenerator();
-  const toc_items = headings.map(heading => {
-    const text = extract_heading_text(heading);
-    const id = slugger.slug(text);
-
-    // Set ID on heading element
-    heading.setAttribute('id', id);
-
-    return {
-      id,
-      text,
-      level: parseInt(heading.tagName[1]),
-      element: heading
-    };
-  });
-
-  return toc_items;
-}
-
-// Build hierarchical TOC HTML tree
-function build_toc_html(items) {
-  if (items.length === 0) {
-    return '<div class="toc-empty">No headings found<div class="toc-empty-hint">Add headings (# Title) to enable navigation</div></div>';
-  }
-
-  let html = '';
-  let stack = [];  // Track nesting levels
-  let first_item = true;
-
-  items.forEach((item, index) => {
-    // Close groups for shallower levels
-    while (stack.length > 0 && stack[stack.length - 1] >= item.level) {
-      stack.pop();
-      html += '</ul></li>';
-    }
-
-    // Open new group if deeper
-    if (stack.length === 0 || stack[stack.length - 1] < item.level) {
-      if (stack.length === 0) {
-        html += '<ul role="group">';
-      } else {
-        html += '<ul role="group">';
-      }
-      stack.push(item.level);
-    }
-
-    const tabindex = first_item ? '0' : '-1';
-    first_item = false;
-
-    // Check if this item has children (next item is deeper)
-    const has_children = index < items.length - 1 && items[index + 1].level > item.level;
-    const aria_expanded = has_children ? 'aria-expanded="true"' : '';
-
-    html += `
-      <li role="treeitem" ${aria_expanded} aria-level="${item.level}" tabindex="${tabindex}" data-heading-id="${item.id}">
-        <a href="#${item.id}" class="toc-link">${item.text}</a>
-    `;
-
-    // Don't close li yet if it will have children
-    if (!has_children) {
-      html += '</li>';
-    }
-  });
-
-  // Close remaining open groups
-  while (stack.length > 0) {
-    stack.pop();
-    html += '</ul>';
-    if (stack.length > 0) {
-      html += '</li>';
-    }
-  }
-
-  return html;
-}
-
-// Render TOC in sidebar
-function render_toc(items) {
-  const toc_sidebar = document.getElementById('toc-sidebar');
-
-  if (!toc_sidebar) {
-    console.warn('TOC sidebar not found');
-    return;
-  }
-
-  const toc_html = build_toc_html(items);
-
-  // Sanitize before injection
-  const clean_html = DOMPurify.sanitize(toc_html, {
-    ALLOWED_TAGS: ['div', 'ul', 'li', 'a'],
-    ALLOWED_ATTR: ['role', 'aria-level', 'tabindex', 'data-heading-id', 'href', 'class'],
-    SANITIZE_NAMED_PROPS: true
-  });
-
-  toc_sidebar.innerHTML = clean_html;
-}
-
 // Render markdown content
 async function render_content(content) {
   const content_element = document.getElementById('content');
@@ -324,8 +168,7 @@ ${escaped_frontmatter}
   // Sanitize with DOMPurify
   const clean_html = DOMPurify.sanitize(frontmatter_html + html, {
     ADD_TAGS: ['div', 'section', 'pre', 'input'],
-    ADD_ATTR: ['class', 'id', 'data-original', 'type', 'disabled', 'checked'],
-    SANITIZE_NAMED_PROPS: true  // Adds user-content- prefix to IDs
+    ADD_ATTR: ['class', 'data-original', 'type', 'disabled', 'checked']
   });
 
   // Inject to DOM
@@ -337,10 +180,6 @@ ${escaped_frontmatter}
     if (input.type !== 'checkbox') input.remove();
     if (!input.hasAttribute('disabled')) input.setAttribute('disabled', 'disabled');
   });
-
-  // Extract and render TOC (after DOMPurify, before highlight.js)
-  const toc_items = extract_toc();
-  render_toc(toc_items);
 
   // Apply syntax highlighting to code blocks
   if (window.hljs) {

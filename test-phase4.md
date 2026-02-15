@@ -1,396 +1,228 @@
 # Phase 4: Navigation & Search Test
 
-This file tests all Phase 4 features: find-in-page, table of contents, and keyboard shortcuts.
+Test file for TOC sidebar, find-in-page, and keyboard shortcuts.
 
 **Last updated:** 2026-02-15
 
----
+## Test Cases
 
-## Test Objectives
+### 1. Basic Headings
 
-- [ ] Find in page (Cmd+F)
-- [ ] TOC extraction from headings
-- [ ] TOC sidebar toggle (Cmd+Shift+O)
-- [ ] Keyboard navigation in TOC
-- [ ] Active heading tracking
-- [ ] State persistence
-- [ ] Theme compatibility
+#### Subheading Level 2
 
----
+##### Subheading Level 3
 
-## Section 1: Basic Headings
+###### Subheading Level 4
 
-### Subsection 1.1: Introduction
+### 2. Duplicate Headings (ID Collision Test)
 
-This is a simple subsection to test basic TOC extraction.
+## Introduction
 
-### Subsection 1.2: Getting Started
+Some content here.
 
-Multiple headings at the same level should all appear in the TOC.
+## Introduction
 
-#### Subsection 1.2.1: Deep Nesting
+Duplicate heading - should get `user-content-introduction-1` ID.
 
-Testing deeply nested headings (H4 level).
+## Introduction
 
-##### Subsection 1.2.1.1: Very Deep (H5)
+Third duplicate - should get `user-content-introduction-2` ID.
 
-Even deeper nesting.
+### 3. Long Heading Text (Truncation Test)
 
-###### Subsection 1.2.1.1.1: Maximum Depth (H6)
+## This is a very long heading that should be truncated with ellipsis after a certain width in the TOC sidebar but the full text should be visible on hover and the ID should not be truncated
 
-This is the deepest heading level in markdown.
+Content under long heading.
 
----
+### 4. Task-List Checkboxes in Headings
 
-## Section 2: Duplicate Headings
+## [x] Completed Feature
 
-### Introduction
-
-This is a duplicate "Introduction" heading - should get unique ID.
-
-### Introduction
-
-Third "Introduction" heading - should get unique ID with suffix.
-
-### Setup
-
-First setup section.
-
-### Setup
-
-Duplicate setup section.
-
-### Configuration
-
-Config section.
-
-### Configuration
-
-Duplicate config section.
-
----
-
-## Section 3: Special Characters
-
-### Hello & Goodbye
-
-Testing ampersand in heading.
-
-### Hello, World!
-
-Testing punctuation.
-
-### <script>alert('XSS')</script>
-
-Testing HTML injection attempt - should be sanitized.
-
-### [Link Text](https://example.com)
-
-Testing markdown link syntax in heading.
-
-### Code: `fetch()` Method
-
-Testing inline code in heading.
-
----
-
-## Section 4: Unicode and Emoji
-
-### Café
-
-French accented character.
-
-### 你好世界
-
-Chinese characters.
-
-### Привет мир
-
-Cyrillic characters.
-
-### 😄 Emoji Test
-
-Emoji in heading (should be stripped from ID but visible in text).
-
-### مرحبا بالعالم
-
-Arabic text (right-to-left).
-
----
-
-## Section 5: Task Lists in Headings
-
-### [x] Completed Feature
-
-Heading with checked task list item.
+This heading has a checkbox that should be stripped from TOC text.
 
 ### [ ] Pending Task
 
-Heading with unchecked task list item.
+Another heading with checkbox.
 
-### ~~Old~~ New Approach
+## ~~Old~~ New Approach (Strikethrough Test)
 
-Heading with strikethrough text.
+Strikethrough should be handled correctly in TOC.
 
----
+### 5. Code Spans in Headings
 
-## Section 6: Very Long Headings
+## API Reference: `fetch()` Method
 
-### This is a very long heading that should be truncated with ellipsis after a certain width in the TOC sidebar but the full text should be visible on hover when the user mouses over the truncated heading in the table of contents
+## The `async`/`await` Pattern
 
-Testing heading truncation with ellipsis.
+Code spans should appear in TOC.
 
-### Another extremely long heading text to test how the TOC handles wrapping and truncation when headings exceed the maximum display width for the sidebar which is currently set to 250 pixels
+### 6. Special Characters in Headings
 
-Another long heading.
+## Hello & Goodbye
 
----
+## Hello, World!
 
-## Section 7: Empty Sections
+## Test #1: Numbers & Symbols
 
-### Empty Section 1
+## <script>alert('XSS')</script>
 
-### Empty Section 2
+HTML in heading should be sanitized.
 
-### Empty Section 3
+### 7. Unicode and Emoji Tests
 
----
+## Café
 
-## Section 8: Code Blocks
+## 你好 (Chinese)
 
-Some code for find-in-page testing:
+## Привет (Russian)
 
+## 😄 Emoji Test
+
+## Côte d'Ivoire
+
+### 8. Empty Sections
+
+## Section with No Content
+
+## Another Empty Section
+
+### 9. Nested Lists and Content
+
+## Complex Content Section
+
+Content with:
+
+- Bullet points
+  - Nested items
+  - More nesting
+- More bullets
+
+### Task lists:
+- [ ] Unchecked
+- [x] Checked
+
+### Code blocks:
 ```javascript
-function example() {
-  console.log('Hello, world!');
-  return 42;
-}
+const test = 'code block';
 ```
 
-```python
-def greet(name):
-    print(f"Hello, {name}!")
-    return True
-```
-
----
-
-## Section 9: Mermaid Diagrams
+### 10. Mermaid Diagram Test
 
 ```mermaid
-flowchart LR
-    A[## This looks like H2] --> B[But it's a node]
-    B --> C[### Not a real heading]
-    C --> D[Should NOT appear in TOC]
+graph TD
+    A[## This is NOT a heading] --> B[Node B]
+    B --> C{Decision}
+    C -->|Yes| D[Result 1]
+    C -->|No| E[Result 2]
 ```
 
-The mermaid diagram above contains heading-like text that should **not** appear in the TOC.
+The `## This is NOT a heading` text inside mermaid should not appear in TOC.
 
----
+## Performance Test Section
 
-## Section 10: Mixed Content
+<!-- Auto-generated headings for performance testing -->
 
-### Testing Multiple Features
+### Heading 1
+Content 1
 
-This section tests:
-- Find in page: Search for "unique-keyword-12345"
-- TOC extraction: Should appear in TOC
-- Scrolling: Should highlight when scrolled into view
-- Keyboard nav: Should be reachable with arrow keys
+### Heading 2
+Content 2
 
-unique-keyword-12345
+### Heading 3
+Content 3
 
----
+### Heading 4
+Content 4
 
-## Performance Test Headings
+### Heading 5
+Content 5
 
-Below are auto-generated headings for performance testing with 50+ headings:
+### Heading 6
+Content 6
 
-### Heading 001
-Content for heading 001.
+### Heading 7
+Content 7
 
-### Heading 002
-Content for heading 002.
+### Heading 8
+Content 8
 
-### Heading 003
-Content for heading 003.
+### Heading 9
+Content 9
 
-### Heading 004
-Content for heading 004.
+### Heading 10
+Content 10
 
-### Heading 005
-Content for heading 005.
+### Heading 11
+Content 11
 
-### Heading 006
-Content for heading 006.
+### Heading 12
+Content 12
 
-### Heading 007
-Content for heading 007.
+### Heading 13
+Content 13
 
-### Heading 008
-Content for heading 008.
+### Heading 14
+Content 14
 
-### Heading 009
-Content for heading 009.
+### Heading 15
+Content 15
 
-### Heading 010
-Content for heading 010.
+### Heading 16
+Content 16
 
-### Heading 011
-Content for heading 011.
+### Heading 17
+Content 17
 
-### Heading 012
-Content for heading 012.
+### Heading 18
+Content 18
 
-### Heading 013
-Content for heading 013.
+### Heading 19
+Content 19
 
-### Heading 014
-Content for heading 014.
+### Heading 20
+Content 20
 
-### Heading 015
-Content for heading 015.
+## Edge Cases Summary
 
-### Heading 016
-Content for heading 016.
+This file tests:
+- ✅ Multiple heading levels (H1-H6)
+- ✅ Duplicate headings (ID collision)
+- ✅ Long heading text (truncation)
+- ✅ Task-list checkboxes in headings
+- ✅ Strikethrough in headings
+- ✅ Code spans in headings
+- ✅ Special characters & HTML
+- ✅ Unicode text (multiple languages)
+- ✅ Emoji in headings
+- ✅ Empty sections
+- ✅ Mermaid diagrams (heading-like text)
+- ✅ Performance test (20+ headings)
 
-### Heading 017
-Content for heading 017.
-
-### Heading 018
-Content for heading 018.
-
-### Heading 019
-Content for heading 019.
-
-### Heading 020
-Content for heading 020.
-
-### Heading 021
-Content for heading 021.
-
-### Heading 022
-Content for heading 022.
-
-### Heading 023
-Content for heading 023.
-
-### Heading 024
-Content for heading 024.
-
-### Heading 025
-Content for heading 025.
-
-### Heading 026
-Content for heading 026.
-
-### Heading 027
-Content for heading 027.
-
-### Heading 028
-Content for heading 028.
-
-### Heading 029
-Content for heading 029.
-
-### Heading 030
-Content for heading 030.
-
-### Heading 031
-Content for heading 031.
-
-### Heading 032
-Content for heading 032.
-
-### Heading 033
-Content for heading 033.
-
-### Heading 034
-Content for heading 034.
-
-### Heading 035
-Content for heading 035.
-
-### Heading 036
-Content for heading 036.
-
-### Heading 037
-Content for heading 037.
-
-### Heading 038
-Content for heading 038.
-
-### Heading 039
-Content for heading 039.
-
-### Heading 040
-Content for heading 040.
-
-### Heading 041
-Content for heading 041.
-
-### Heading 042
-Content for heading 042.
-
-### Heading 043
-Content for heading 043.
-
-### Heading 044
-Content for heading 044.
-
-### Heading 045
-Content for heading 045.
-
-### Heading 046
-Content for heading 046.
-
-### Heading 047
-Content for heading 047.
-
-### Heading 048
-Content for heading 048.
-
-### Heading 049
-Content for heading 049.
-
-### Heading 050
-Content for heading 050.
-
----
-
-## Expected Results
+## Expected Behavior
 
 ### TOC Extraction
-- ✅ All H1-H6 headings extracted
-- ✅ Task-list checkboxes stripped from heading text
-- ✅ Duplicate headings have unique IDs
-- ✅ Special characters sanitized
-- ✅ Unicode headings preserved
-- ✅ Mermaid diagram text NOT extracted
-
-### Find in Page
-- ✅ Cmd+F opens find dialog
-- ✅ Search highlights matches
-- ✅ Navigate with Enter/Shift+Enter
-- ✅ Mermaid error divs excluded
+- All `##` headings should appear in TOC
+- Checkboxes should be stripped from TOC text
+- IDs should be `user-content-{slug}` format
+- Duplicates should have `-1`, `-2` suffixes
+- HTML should be sanitized
+- Unicode should be preserved
+- Mermaid content should NOT appear in TOC
 
 ### Keyboard Navigation
-- ✅ Cmd+Shift+O toggles TOC
-- ✅ Arrow keys navigate TOC
-- ✅ Home/End jump to first/last
-- ✅ Enter/Space expand/collapse
+- `Cmd+Shift+O`: Toggle TOC
+- `Cmd+F`: Find in page
+- Arrow keys: Navigate TOC
+- Enter/Space: Expand/collapse
+- Home/End: Jump to first/last
 
-### Performance
-- ✅ 50+ headings render smoothly
-- ✅ Scroll tracking at 60 FPS
-- ✅ No memory leaks on file reload
+### Scroll Tracking
+- Active heading should highlight as you scroll
+- TOC should scroll to show active heading
+- Smooth 60 FPS scrolling
 
-### State Persistence
-- ✅ Collapsed sections persist across reloads
-- ✅ State saved to userData/toc-state.json
-
-### Theme Compatibility
-- ✅ TOC visible in light mode
-- ✅ TOC visible in dark mode
-- ✅ Focus ring visible in both themes
-- ✅ Active heading visible in both themes
+### Accessibility
+- Screen reader announces headings
+- Focus visible on all items
+- Roving tabindex pattern
+- ARIA attributes present

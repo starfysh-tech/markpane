@@ -11,5 +11,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('error', (_event, message) => {
       callback(message);
     });
+  },
+
+  // Find-in-page APIs
+  findText: (query) => {
+    if (typeof query !== 'string') return;
+    if (query.length > 1000) return;
+    ipcRenderer.send('find-text', query);
+  },
+
+  stopFind: (action) => {
+    ipcRenderer.send('stop-find', action);
+  },
+
+  onFoundInPage: (callback) => {
+    ipcRenderer.removeAllListeners('found-in-page');
+    ipcRenderer.on('found-in-page', (_event, result) => {
+      callback(result);
+    });
   }
 });

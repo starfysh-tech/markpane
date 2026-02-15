@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut, Menu } = require('electron');
+const { app, BrowserWindow, dialog, globalShortcut, Menu, ipcMain } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -643,6 +643,28 @@ function create_window() {
     main_window = null;
   });
 }
+
+// Find-in-page IPC handlers
+ipcMain.on('find-text', (event, query) => {
+  if (!main_window || main_window.isDestroyed()) return;
+
+  main_window.webContents.findInPage(query, { findNext: true });
+});
+
+ipcMain.on('stop-find', (event, action) => {
+  if (!main_window || main_window.isDestroyed()) return;
+
+  main_window.webContents.stopFindInPage(action || 'clearSelection');
+});
+
+// Forward found-in-page events to renderer
+app.on('web-contents-created', (event, contents) => {
+  contents.on('found-in-page', (event, result) => {
+    if (!main_window || main_window.isDestroyed()) return;
+
+    main_window.webContents.send('found-in-page', result);
+  });
+});
 
 app.whenReady().then(async () => {
   if (uninstall_quicklook_flag) {
