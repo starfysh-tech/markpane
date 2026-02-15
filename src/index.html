@@ -12,7 +12,10 @@
 </head>
 <body>
   <div class="titlebar-spacer"><span id="filename"></span></div>
-  <div id="content" class="markdown-body"></div>
+  <div class="app-layout">
+    <nav id="toc-sidebar" class="toc-sidebar toc-hidden" role="tree" aria-label="Table of Contents"></nav>
+    <div id="content" class="markdown-body"></div>
+  </div>
 
   <script src="../node_modules/markdown-it/dist/markdown-it.min.js"></script>
   <script src="../node_modules/markdown-it-task-lists/dist/markdown-it-task-lists.min.js"></script>
