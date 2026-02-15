@@ -1,4 +1,4 @@
-// Import github-slugger for heading ID generation
+// Direct path required: Electron's <script type="module"> doesn't support bare specifiers
 import GithubSlugger from '../node_modules/github-slugger/index.js';
 
 // Initialize markdown-it with custom fence renderer
@@ -154,11 +154,20 @@ function extract_heading_text(heading) {
   return clone.textContent.trim();
 }
 
+// Escape HTML for safe injection
+function escape_html(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 // Extract headings and generate TOC
 function extract_and_render_toc(content_element) {
   active_toc_li = null;
   const toc_container = document.getElementById('toc-sidebar');
-  if (!toc_container) return;
+  if (!toc_container) {
+    console.error('TOC container not found');
+    return;
+  }
 
   // Extract headings from sanitized DOM
   const headings = Array.from(content_element.querySelectorAll('h1, h2, h3, h4, h5, h6'));
@@ -190,7 +199,7 @@ function extract_and_render_toc(content_element) {
   // Build TOC HTML
   const toc_html = '<ul role="group">' + toc_items.map((item, index) =>
     `<li role="treeitem" aria-level="${item.level}" tabindex="${index === 0 ? '0' : '-1'}">` +
-    `<a href="#${item.id}" title="${item.text}">${item.text}</a></li>`
+    `<a href="#${item.id}" title="${escape_html(item.text)}">${escape_html(item.text)}</a></li>`
   ).join('') + '</ul>';
 
   // Sanitize and inject
@@ -234,7 +243,10 @@ function setup_scroll_tracking() {
   const content_element = document.getElementById('content');
   const toc_container = document.getElementById('toc-sidebar');
 
-  if (!content_element || !toc_container) return;
+  if (!content_element || !toc_container) {
+    console.error('Scroll tracking setup failed: missing content or TOC element');
+    return;
+  }
 
   function update_active_heading() {
     raf_pending = false;
@@ -254,7 +266,7 @@ function setup_scroll_tracking() {
     }
 
     // Update active class in TOC - only toggle 2 elements
-    const new_active_link = toc_container.querySelector(`a[href="#${active_id}"]`);
+    const new_active_link = toc_container.querySelector(`a[href="#${CSS.escape(active_id)}"]`);
     if (new_active_link) {
       const new_active_li = new_active_link.closest('li');
       if (new_active_li !== active_toc_li) {
@@ -295,7 +307,10 @@ function setup_toc_keyboard_nav() {
   keyboard_controller = new AbortController();
 
   const toc_container = document.getElementById('toc-sidebar');
-  if (!toc_container) return;
+  if (!toc_container) {
+    console.error('TOC keyboard navigation setup failed: TOC container not found');
+    return;
+  }
 
   toc_container.addEventListener('keydown', (e) => {
     const items = Array.from(toc_container.querySelectorAll('li[role="treeitem"]'));
@@ -467,9 +482,11 @@ function init() {
   // Toggle TOC sidebar
   function toggle_toc() {
     const toc_sidebar = document.getElementById('toc-sidebar');
-    if (toc_sidebar) {
-      toc_sidebar.classList.toggle('toc-hidden');
+    if (!toc_sidebar) {
+      console.error('TOC toggle failed: sidebar element not found');
+      return;
     }
+    toc_sidebar.classList.toggle('toc-hidden');
   }
 
   // Toggle TOC sidebar on Cmd+Shift+O
