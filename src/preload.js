@@ -17,6 +17,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('error', handler);
   },
 
+  onFileChanged: (callback) => {
+    const handler = (_event, content, filename) => {
+      callback(content, filename);
+    };
+    ipcRenderer.on('file-changed', handler);
+    return () => ipcRenderer.removeListener('file-changed', handler);
+  },
+
   // Find-in-page APIs
   findText: (query) => {
     if (typeof query !== 'string') return;
@@ -33,7 +41,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
       callback(result);
     };
     ipcRenderer.on('found-in-page', handler);
-    // Return cleanup function for caller to use if needed
     return () => ipcRenderer.removeListener('found-in-page', handler);
   },
 
@@ -81,7 +88,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
 
     // Allowlist expected keys
-    const allowed_keys = ['theme', 'bodyFont', 'codeFont', 'font'];
+    const allowed_keys = ['theme', 'bodyFont', 'bodyFontSize', 'codeFont', 'codeFontSize', 'font'];
     const validated_settings = {};
     for (const key of Object.keys(settings)) {
       if (allowed_keys.includes(key)) {
@@ -97,6 +104,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
 
     ipcRenderer.send('save-settings', validated_settings);
+  },
+
+  openFile: (file_path) => {
+    // Validate input type
+    if (typeof file_path !== 'string') {
+      return;
+    }
+
+    ipcRenderer.send('open-file', file_path);
+  },
+
+  toggleAlwaysOnTop: () => {
+    ipcRenderer.send('toggle-always-on-top');
+  },
+
+  onAlwaysOnTopChanged: (callback) => {
+    const handler = (_event, is_pinned) => {
+      callback(is_pinned);
+    };
+    ipcRenderer.on('always-on-top-changed', handler);
+    return () => ipcRenderer.removeListener('always-on-top-changed', handler);
   },
 
   closeWindow: () => {

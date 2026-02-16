@@ -24,6 +24,10 @@
   --focus-ring-color: #0969da;
   --active-bg: rgba(9, 105, 218, 0.1);
   --active-text: #0969da;
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --overlay-content-bg: rgba(0, 0, 0, 0.5);
+  --overlay-text: #ffffff;
+  --titlebar-height: 38px;
   --custom-code-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --custom-code-font-size: 14px;
   --custom-body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -54,6 +58,9 @@
   --focus-ring-color: #58a6ff;
   --active-bg: rgba(88, 166, 255, 0.15);
   --active-text: #58a6ff;
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --overlay-content-bg: rgba(0, 0, 0, 0.5);
+  --overlay-text: #ffffff;
 }
 
 /* Body and Layout */
@@ -89,7 +96,7 @@ body {
 
 /* Fixed titlebar spacer */
 .titlebar-spacer {
-  height: 38px;
+  height: var(--titlebar-height);
   background-color: var(--bg-color);
   -webkit-app-region: drag;
   position: fixed;
@@ -97,9 +104,17 @@ body {
   left: 0;
   right: 0;
   z-index: 100;
-  display: flex;
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+/* Traffic lights spacer (left) */
+.titlebar-traffic-spacer {
+  width: 70px;
+  -webkit-app-region: drag;
 }
 
 /* TOC Toggle Button */
@@ -210,18 +225,31 @@ body {
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Filename in titlebar */
+/* Filename in titlebar (center) */
 #filename {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   -webkit-app-region: drag;
   user-select: none;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Make titlebar spacer draggable */
-.titlebar-spacer {
-  -webkit-app-region: drag;
+/* Pin indicator (right) */
+#pin-indicator {
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  transition: opacity 0.2s ease;
+}
+
+#pin-indicator.visible {
+  opacity: 0.6;
 }
 
 /* Content scroll area - old block removed, consolidated below with grid layout */

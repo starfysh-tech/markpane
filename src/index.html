@@ -11,9 +11,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
 </head>
 <body>
+  <div id="drop-overlay">
+    <div class="drop-overlay-content">Drop markdown file to open</div>
+  </div>
   <div class="titlebar-spacer">
+    <div class="titlebar-traffic-spacer"></div>
     <button id="toc-toggle" aria-label="Toggle Table of Contents" data-tooltip="Table of Contents" data-tooltip-shortcut="⌘⇧O">☰</button>
     <span id="filename"></span>
+    <span id="pin-indicator" title="Always on top (Cmd+Shift+A)">📌</span>
     <button id="settings-toggle" aria-label="Settings" data-tooltip="Settings" data-tooltip-shortcut="⌘,">⚙</button>
   </div>
   <div id="find-bar">
@@ -105,6 +110,7 @@
   <script src="../node_modules/mermaid/dist/mermaid.min.js"></script>
   <script src="../node_modules/dompurify/dist/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script src="../node_modules/github-slugger/dist/index.umd.js"></script>
   <script type="module" src="renderer.js"></script>
 </body>
 </html>

@@ -23,7 +23,7 @@ branch: feat/phase4-navigation-search
 fixes_applied:
   - "P1-002: Rewrote scroll handler with cached positions using requestAnimationFrame"
   - "P1-003: Removed dead code (state-manager.js - 85 lines)"
-  - "P2-005: Inlined build_toc_tree, extracted toggle_toc, removed unused aria-expanded"
+  - "P2-005: Inlined build_toc_tree, extracted toggle_toc"
 fixes_skipped:
   - "P1-001: CDN security (app runs locally/offline - not applicable)"
   - "P2-004: Agent-native API (deferred to future iteration)"
@@ -56,7 +56,7 @@ Code review of `feat/phase4-navigation-search` branch identified critical perfor
 - `build_toc_tree()` function abstraction hid simple flat list generation behind misleading "tree" naming
 
 **DOMPurify Configuration:**
-- `aria-expanded` listed in ALLOWED_ATTR but never used in generated HTML (flat list structure)
+- Ensures only necessary ARIA attributes are allowed for flat list structure
 
 ## Solution
 
@@ -70,13 +70,16 @@ Code review of `feat/phase4-navigation-search` branch identified critical perfor
 - Delete `src/state-manager.js` - state persistence deferred to Phase 5 as per plan
 - Inline `build_toc_tree()` function to reveal true flat list structure
 - Extract `toggle_toc()` function to eliminate duplication
-- Remove unused `aria-expanded` from DOMPurify ALLOWED_ATTR
+- Ensure DOMPurify ALLOWED_ATTR includes only necessary attributes
 
 ## Code Changes
 
-### Before: O(n) Layout Reflows Every 16ms
+### Anti-pattern: O(n) Layout Reflows Every 16ms
+
+> **Note:** The code shown is illustrative of the anti-pattern, reconstructed for clarity. Actual history may differ.
+
 ```javascript
-// Line 233-272 (OLD)
+// Illustrative example (not verbatim from git history)
 let scroll_timeout = null;
 
 function setup_scroll_tracking() {
@@ -273,7 +276,7 @@ const clean_toc = DOMPurify.sanitize(toc_html, {
 // Line 195-199 (NEW)
 const clean_toc = DOMPurify.sanitize(toc_html, {
   ALLOWED_TAGS: ['ul', 'li', 'a'],
-  ALLOWED_ATTR: ['href', 'role', 'aria-level', 'tabindex', 'class'],  // removed aria-expanded
+  ALLOWED_ATTR: ['href', 'role', 'aria-level', 'tabindex', 'class', 'title'],
   SANITIZE_NAMED_PROPS: true
 });
 ```
@@ -286,7 +289,7 @@ rm src/state-manager.js  # 85 lines removed
 
 ## Performance Impact
 
-**Estimated Improvements:**
+**Projected Improvements (algorithmic analysis, not measured):**
 - **50 headings:** ~5ms → <1ms per frame (80% reduction)
 - **200 headings:** ~20ms → <2ms per frame (90% reduction)
 - **500 headings:** ~50ms → <2ms per frame (96% reduction)

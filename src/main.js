@@ -52,6 +52,7 @@ Options:
 Shortcuts:
   Escape          Close window
   Cmd/Ctrl+W      Close window
+  Cmd/Ctrl+Shift+A  Toggle always-on-top
 `);
   process.exit(0);
 }
@@ -728,6 +729,91 @@ async function maybe_handle_quicklook_setup() {
   return true;
 }
 
+// Per-window file watching
+function reload_file_for_window(win) {
+  if (!win || win.isDestroyed() || !win.markpane_file_path || !win.markpane_file_content) {
+    return;
+  }
+
+  const file_path = win.markpane_file_path;
+  if (!fs.existsSync(file_path)) {
+    return;
+  }
+
+  try {
+    const new_content = fs.readFileSync(file_path, 'utf-8');
+    if (new_content !== win.markpane_file_content) {
+      win.markpane_file_content = new_content;
+      const display_name = path.basename(file_path);
+      win.webContents.send('file-changed', new_content, display_name);
+    }
+  } catch (err) {
+    console.warn('File reload failed:', err.message);
+    win.webContents.send('error', `Live reload failed: ${err.message}`);
+  }
+}
+
+function start_file_watcher_for_window(win) {
+  if (!win || win.isDestroyed() || !win.markpane_file_path || win.markpane_watcher) {
+    return;
+  }
+
+  const file_path = win.markpane_file_path;
+
+  try {
+    win.markpane_watcher = fs.watch(file_path, { persistent: false }, (event_type) => {
+      // Debounce rapid changes
+      if (win.markpane_reload_debounce) {
+        clearTimeout(win.markpane_reload_debounce);
+      }
+
+      win.markpane_reload_debounce = setTimeout(() => {
+        if (fs.existsSync(file_path)) {
+          reload_file_for_window(win);
+        } else {
+          stop_file_watcher_for_window(win);
+          if (!win.isDestroyed()) {
+            win.webContents.send('error', 'File was deleted');
+          }
+        }
+      }, 300);
+    });
+
+    win.markpane_watcher.on('error', (err) => {
+      console.warn('File watcher error:', err.message);
+      if (!win.isDestroyed()) {
+        win.webContents.send('error', `File watch error: ${err.message}`);
+      }
+      stop_file_watcher_for_window(win);
+    });
+  } catch (err) {
+    console.warn('Failed to start file watcher:', err.message);
+    if (!win.isDestroyed()) {
+      win.webContents.send('error', `Failed to watch file: ${err.message}`);
+    }
+  }
+}
+
+function stop_file_watcher_for_window(win) {
+  if (!win) {
+    return;
+  }
+
+  if (win.markpane_watcher) {
+    try {
+      win.markpane_watcher.close();
+    } catch (err) {
+      console.warn('Error closing file watcher:', err.message);
+    }
+    win.markpane_watcher = null;
+  }
+
+  if (win.markpane_reload_debounce) {
+    clearTimeout(win.markpane_reload_debounce);
+    win.markpane_reload_debounce = null;
+  }
+}
+
 function open_file(fp) {
   const normalized_path = normalize_file_path(fp);
 
@@ -744,6 +830,28 @@ function open_file(fp) {
 
   create_window(normalized_path);
   add_recent_file(normalized_path);
+}
+
+function toggle_always_on_top() {
+  const focused_win = BrowserWindow.getFocusedWindow();
+  if (!focused_win || focused_win.isDestroyed()) {
+    return;
+  }
+
+  const is_pinned = !focused_win.isAlwaysOnTop();
+  focused_win.setAlwaysOnTop(is_pinned);
+
+  // Update menu checkmark
+  const menu = Menu.getApplicationMenu();
+  if (menu) {
+    const pin_item = menu.getMenuItemById('pin-window');
+    if (pin_item) {
+      pin_item.checked = is_pinned;
+    }
+  }
+
+  // Notify renderer
+  focused_win.webContents.send('always-on-top-changed', is_pinned);
 }
 
 function create_window(target_file_path) {
@@ -799,9 +907,10 @@ function create_window(target_file_path) {
     }
   });
 
-  // Store file path on window
+  // Store file path and content on window
   if (target_file_path) {
     win.markpane_file_path = normalize_file_path(target_file_path);
+    win.markpane_file_content = file_content;
   }
 
   win.loadFile(path.join(__dirname, 'index.html'));
@@ -863,6 +972,11 @@ function create_window(target_file_path) {
       win.webContents.send('file-content', file_content, display_name, is_pdf_mode);
       win.webContents.send('settings', settings);
 
+      // Start file watcher after sending content
+      if (!is_pdf_mode && target_file_path) {
+        start_file_watcher_for_window(win);
+      }
+
       if (is_pdf_mode) {
         setTimeout(async () => {
           try {
@@ -904,6 +1018,11 @@ function create_window(target_file_path) {
     win.on('move', debounced_save);
     win.on('resize', debounced_save);
   }
+
+  // Clean up file watcher on window close
+  win.on('closed', () => {
+    stop_file_watcher_for_window(win);
+  });
 }
 
 function rebuild_app_menu() {
@@ -1007,6 +1126,15 @@ function rebuild_app_menu() {
               focused.webContents.send('toggle-settings');
             }
           }
+        },
+        { type: 'separator' },
+        {
+          label: 'Pin Window',
+          type: 'checkbox',
+          id: 'pin-window',
+          accelerator: 'CmdOrCtrl+Shift+A',
+          checked: false,
+          click: toggle_always_on_top
         }
       ]
     },
@@ -1050,6 +1178,47 @@ ipcMain.on('close-window', (event) => {
 ipcMain.on('quit-app', () => {
   app.quit();
 });
+
+// Handle file open requests from renderer
+ipcMain.on('open-file', (event, new_file_path) => {
+  // Validate path type
+  if (typeof new_file_path !== 'string') {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('error', 'Invalid file path');
+    }
+    return;
+  }
+
+  // Normalize and resolve path (prevents traversal)
+  const resolved_path = path.resolve(new_file_path);
+
+  // Check extension (UX guard)
+  const allowed_extensions = ['.md', '.markdown', '.mdown', '.mkd', '.mkdn', '.mdwn', '.mdx', '.txt'];
+  const ext = path.extname(resolved_path).toLowerCase();
+  if (!allowed_extensions.includes(ext)) {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('error', 'Unsupported file type');
+    }
+    return;
+  }
+
+  // Check existence
+  if (!fs.existsSync(resolved_path)) {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('error', 'File not found');
+    }
+    return;
+  }
+
+  // Open in new window
+  open_file(resolved_path);
+});
+
+// Handle always-on-top toggle
+ipcMain.on('toggle-always-on-top', toggle_always_on_top);
 
 // Forward found-in-page events to renderer
 app.on('web-contents-created', (event, contents) => {
