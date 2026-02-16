@@ -8,7 +8,8 @@
     "start": "electron .",
     "build": "electron-builder",
     "build:quicklook": "./scripts/build-quicklook.sh",
-    "build:mac": "./scripts/build-quicklook.sh && electron-builder --mac && ./scripts/notarize.sh"
+    "build:mac": "./scripts/build-quicklook.sh && electron-builder --mac && ./scripts/notarize.sh",
+    "build:mas": "./scripts/build-quicklook.sh && electron-builder --mac mas"
   },
   "keywords": [
     "markdown",
@@ -16,8 +17,9 @@
     "viewer",
     "electron"
   ],
-  "author": "",
+  "author": "Starfysh, LLC",
   "license": "MIT",
+  "copyright": "© 2026 Starfysh, LLC",
   "dependencies": {
     "dompurify": "^3.0.0",
     "github-slugger": "^2.0.0",
@@ -41,7 +43,19 @@
       "signIgnore": [
         "MarkPaneQLHost\\.app\\.bundled"
       ],
-      "target": "dmg"
+      "target": ["dmg", "mas"],
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "mas": {
+      "type": "distribution",
+      "category": "public.app-category.developer-tools",
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "hardenedRuntime": false,
+      "provisioningProfile": "build/embedded.provisionprofile"
     },
     "files": [
       "src/**/*",
