@@ -236,9 +236,13 @@ function load_window_bounds() {
 }
 
 function save_window_bounds(bounds) {
-  const bounds_path = path.join(app.getPath('userData'), 'window-bounds.json');
-  fs.mkdirSync(path.dirname(bounds_path), { recursive: true });
-  fs.writeFileSync(bounds_path, JSON.stringify(bounds, null, 2));
+  try {
+    const bounds_path = path.join(app.getPath('userData'), 'window-bounds.json');
+    fs.mkdirSync(path.dirname(bounds_path), { recursive: true });
+    fs.writeFileSync(bounds_path, JSON.stringify(bounds, null, 2));
+  } catch (err) {
+    console.error('Failed to save window bounds:', err);
+  }
 }
 
 function load_settings() {
@@ -263,9 +267,13 @@ function load_settings() {
 }
 
 function save_settings(settings) {
-  const settings_path = path.join(app.getPath('userData'), 'settings.json');
-  fs.mkdirSync(path.dirname(settings_path), { recursive: true });
-  fs.writeFileSync(settings_path, JSON.stringify(settings, null, 2));
+  try {
+    const settings_path = path.join(app.getPath('userData'), 'settings.json');
+    fs.mkdirSync(path.dirname(settings_path), { recursive: true });
+    fs.writeFileSync(settings_path, JSON.stringify(settings, null, 2));
+  } catch (err) {
+    console.error('Failed to save settings:', err);
+  }
 }
 
 let cached_system_fonts = null;
@@ -329,6 +337,13 @@ JSON.stringify({ body: body_fonts, mono: mono_fonts });`;
       encoding: 'utf-8'
     });
 
+    // Clean up temp file
+    try {
+      fs.unlinkSync(temp_script);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
     if (result.error || result.status !== 0) {
       console.error('[Font Enumeration] Failed:', result.stderr);
       return null;
@@ -374,9 +389,13 @@ function load_recent_files() {
 }
 
 function save_recent_files(files) {
-  const recent_path = path.join(app.getPath('userData'), 'recent-files.json');
-  fs.mkdirSync(path.dirname(recent_path), { recursive: true });
-  fs.writeFileSync(recent_path, JSON.stringify(files, null, 2));
+  try {
+    const recent_path = path.join(app.getPath('userData'), 'recent-files.json');
+    fs.mkdirSync(path.dirname(recent_path), { recursive: true });
+    fs.writeFileSync(recent_path, JSON.stringify(files, null, 2));
+  } catch (err) {
+    console.error('Failed to save recent files:', err);
+  }
 }
 
 function add_recent_file(fp) {
@@ -797,16 +816,27 @@ function create_window(target_file_path) {
 
   // Open external links in system browser
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        shell.openExternal(url);
+      }
+    } catch (e) {
+      // Ignore malformed URLs
+    }
     return { action: 'deny' };
   });
 
   // Prevent navigation to external URLs
   win.webContents.on('will-navigate', (event, url) => {
-    const parsed_url = new URL(url);
-    if (parsed_url.protocol === 'http:' || parsed_url.protocol === 'https:') {
-      event.preventDefault();
-      shell.openExternal(url);
+    event.preventDefault();
+    try {
+      const parsed_url = new URL(url);
+      if (parsed_url.protocol === 'http:' || parsed_url.protocol === 'https:') {
+        shell.openExternal(url);
+      }
+    } catch (e) {
+      // Malformed URL, do nothing
     }
   });
 
@@ -994,7 +1024,9 @@ ipcMain.on('find-text', (event, query) => {
 });
 
 ipcMain.on('stop-find', (event, action) => {
-  event.sender.stopFindInPage(action || 'clearSelection');
+  const valid_actions = ['clearSelection', 'keepSelection', 'activateSelection'];
+  const validated_action = valid_actions.includes(action) ? action : 'clearSelection';
+  event.sender.stopFindInPage(validated_action);
 });
 
 // Settings IPC handlers
@@ -1058,9 +1090,15 @@ app.whenReady().then(async () => {
 
 // Flush window bounds before quit (debounce might drop last position)
 app.on('before-quit', () => {
-  const windows = BrowserWindow.getAllWindows();
-  if (windows.length > 0 && !windows[0].isDestroyed()) {
-    save_window_bounds(windows[0].getBounds());
+  const focused_window = BrowserWindow.getFocusedWindow();
+  if (focused_window && !focused_window.isDestroyed()) {
+    save_window_bounds(focused_window.getBounds());
+  } else {
+    // Fallback to first window if no focused window
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length > 0 && !windows[0].isDestroyed()) {
+      save_window_bounds(windows[0].getBounds());
+    }
   }
 });
 

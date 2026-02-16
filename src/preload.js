@@ -2,15 +2,19 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   onFileContent: (callback) => {
-    ipcRenderer.on('file-content', (_event, content, filename, is_pdf_mode) => {
+    const handler = (_event, content, filename, is_pdf_mode) => {
       callback(content, filename, is_pdf_mode);
-    });
+    };
+    ipcRenderer.on('file-content', handler);
+    return () => ipcRenderer.removeListener('file-content', handler);
   },
 
   onError: (callback) => {
-    ipcRenderer.on('error', (_event, message) => {
+    const handler = (_event, message) => {
       callback(message);
-    });
+    };
+    ipcRenderer.on('error', handler);
+    return () => ipcRenderer.removeListener('error', handler);
   },
 
   // Find-in-page APIs
@@ -71,7 +75,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   saveSettings: (settings) => {
-    ipcRenderer.send('save-settings', settings);
+    if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
+      console.error('Invalid settings: must be an object');
+      return;
+    }
+
+    // Allowlist expected keys
+    const allowed_keys = ['theme', 'bodyFont', 'codeFont', 'font'];
+    const validated_settings = {};
+    for (const key of Object.keys(settings)) {
+      if (allowed_keys.includes(key)) {
+        validated_settings[key] = settings[key];
+      }
+    }
+
+    // Cap serialized size (64KB)
+    const json = JSON.stringify(validated_settings);
+    if (json.length > 65536) {
+      console.error('Settings object too large');
+      return;
+    }
+
+    ipcRenderer.send('save-settings', validated_settings);
   },
 
   closeWindow: () => {

@@ -19,8 +19,11 @@
   --shadow-color: rgba(0, 0, 0, 0.1);
   --input-bg: #ffffff;
   --dropdown-bg: #ffffff;
-  --hover-bg: #f6f8fa;
+  --hover-bg: rgba(175, 184, 193, 0.2);
   --selected-bg: #eef2ff;
+  --focus-ring-color: #0969da;
+  --active-bg: rgba(9, 105, 218, 0.1);
+  --active-text: #0969da;
   --custom-code-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --custom-code-font-size: 14px;
   --custom-body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -46,8 +49,11 @@
   --shadow-color: rgba(0, 0, 0, 0.3);
   --input-bg: #0d1117;
   --dropdown-bg: #161b22;
-  --hover-bg: #21262d;
+  --hover-bg: rgba(110, 118, 129, 0.2);
   --selected-bg: #1c2c4c;
+  --focus-ring-color: #58a6ff;
+  --active-bg: rgba(88, 166, 255, 0.15);
+  --active-text: #58a6ff;
 }
 
 /* Body and Layout */
@@ -480,21 +486,6 @@ input[type="checkbox"]:disabled {
 #toc-sidebar li[aria-level="4"] { padding-left: 3rem; }
 #toc-sidebar li[aria-level="5"] { padding-left: 4rem; }
 #toc-sidebar li[aria-level="6"] { padding-left: 5rem; }
-
-/* Theme-Aware TOC Colors */
-:root {
-  --focus-ring-color: #0969da;
-  --hover-bg: rgba(175, 184, 193, 0.2);
-  --active-bg: rgba(9, 105, 218, 0.1);
-  --active-text: #0969da;
-}
-
-.theme-dark {
-  --focus-ring-color: #58a6ff;
-  --hover-bg: rgba(110, 118, 129, 0.2);
-  --active-bg: rgba(88, 166, 255, 0.15);
-  --active-text: #58a6ff;
-}
 
 /* Responsive - Narrow Screens */
 @media (max-width: 768px) {

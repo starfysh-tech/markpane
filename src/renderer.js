@@ -61,13 +61,6 @@ function get_prefers_dark() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-function apply_theme() {
-  const prefers_dark = get_prefers_dark();
-  document.body.classList.toggle('theme-dark', prefers_dark);
-  document.body.classList.toggle('theme-light', !prefers_dark);
-  return prefers_dark;
-}
-
 // Initialize mermaid
 function init_mermaid(prefers_dark) {
   mermaid.initialize({
@@ -116,7 +109,11 @@ async function render_mermaid() {
       const { svg } = await mermaid.render(id, content);
       element.innerHTML = svg;
     } catch (err) {
-      element.innerHTML = `<div class="mermaid-error">Diagram error: ${err.message}</div>`;
+      const error_div = document.createElement('div');
+      error_div.className = 'mermaid-error';
+      error_div.textContent = `Diagram error: ${err.message}`;
+      element.innerHTML = '';
+      element.appendChild(error_div);
     }
   }
 }
@@ -719,7 +716,6 @@ function init() {
   }
 
   // Initial theme setup
-  setup_theme();
   apply_settings(current_settings);
 
   // Listen for theme changes (only in UI mode, and only if using system theme)
