@@ -1,96 +1,11 @@
-const { app, BrowserWindow, dialog, globalShortcut, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, Menu, ipcMain, shell } = require('electron');
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 
-let display_name = 'MarkPane';
-let main_window = null;
-let file_content = null;
-let error_message = null;
 let quicklook_debug = false;
-let file_watcher = null;
-
-// File watching with debounce
-let reload_debounce = null;
-
-// Helper: safe send to renderer
-function send_to_renderer(channel, ...args) {
-  if (main_window && !main_window.isDestroyed()) {
-    main_window.webContents.send(channel, ...args);
-  }
-}
-
-function reload_file() {
-  if (!file_path || !fs.existsSync(file_path)) {
-    return;
-  }
-
-  try {
-    const new_content = fs.readFileSync(file_path, 'utf-8');
-    if (new_content !== file_content) {
-      file_content = new_content;
-      send_to_renderer('file-changed', file_content, display_name);
-    }
-  } catch (err) {
-    console.warn('File reload failed:', err.message);
-    send_to_renderer('error', `Live reload failed: ${err.message}`);
-  }
-}
-
-function start_file_watcher() {
-  if (!file_path || file_watcher) {
-    return;
-  }
-
-  try {
-    // Capture file_path by value to prevent stale closure bug
-    const watched_path = file_path;
-    file_watcher = fs.watch(watched_path, { persistent: false }, (event_type) => {
-      // Debounce rapid changes (atomic writes, multiple saves)
-      if (reload_debounce) {
-        clearTimeout(reload_debounce);
-      }
-
-      reload_debounce = setTimeout(() => {
-        // Check if file still exists before reloading
-        if (fs.existsSync(watched_path)) {
-          reload_file();
-        } else {
-          // File deleted
-          stop_file_watcher();
-          send_to_renderer('error', 'File was deleted');
-        }
-      }, 300);
-    });
-
-    file_watcher.on('error', (err) => {
-      console.warn('File watcher error:', err.message);
-      send_to_renderer('error', `File watch error: ${err.message}`);
-      stop_file_watcher();
-    });
-  } catch (err) {
-    console.warn('Failed to start file watcher:', err.message);
-    send_to_renderer('error', `Failed to watch file: ${err.message}`);
-  }
-}
-
-function stop_file_watcher() {
-  if (file_watcher) {
-    try {
-      file_watcher.close();
-    } catch (err) {
-      console.warn('Error closing file watcher:', err.message);
-    }
-    file_watcher = null;
-  }
-
-  if (reload_debounce) {
-    clearTimeout(reload_debounce);
-    reload_debounce = null;
-  }
-}
 
 // Parse CLI args
 const args = process.argv.slice(2);
@@ -158,22 +73,6 @@ if (show_version) {
 }
 
 const is_cli_mode = !!file_path || !!pdf_output || show_version || uninstall_quicklook_flag || uninstall_all_flag;
-
-// Read input file
-if (!file_path) {
-  if (is_cli_mode) {
-    error_message = 'No markdown file specified.\nUsage: markpane <file.md> [--pdf output.pdf]\nRun markpane --help for more options.';
-  }
-} else if (!fs.existsSync(file_path)) {
-  error_message = `File not found: ${file_path}`;
-} else {
-  try {
-    file_content = fs.readFileSync(file_path, 'utf-8');
-    display_name = path.basename(file_path);
-  } catch (err) {
-    error_message = `Failed to read file: ${err.message}`;
-  }
-}
 
 function get_app_bundle_path() {
   if (!is_mac || !is_packaged) {
@@ -323,6 +222,200 @@ function save_quicklook_state(state) {
   const state_path = path.join(app.getPath('userData'), 'quicklook.json');
   fs.mkdirSync(path.dirname(state_path), { recursive: true });
   fs.writeFileSync(state_path, JSON.stringify(state, null, 2));
+}
+
+function load_window_bounds() {
+  try {
+    const bounds_path = path.join(app.getPath('userData'), 'window-bounds.json');
+    if (!fs.existsSync(bounds_path)) {
+      return null;
+    }
+    return JSON.parse(fs.readFileSync(bounds_path, 'utf-8'));
+  } catch (err) {
+    return null;
+  }
+}
+
+function save_window_bounds(bounds) {
+  try {
+    const bounds_path = path.join(app.getPath('userData'), 'window-bounds.json');
+    fs.mkdirSync(path.dirname(bounds_path), { recursive: true });
+    fs.writeFileSync(bounds_path, JSON.stringify(bounds, null, 2));
+  } catch (err) {
+    console.error('Failed to save window bounds:', err);
+  }
+}
+
+function load_settings() {
+  try {
+    const settings_path = path.join(app.getPath('userData'), 'settings.json');
+    if (!fs.existsSync(settings_path)) {
+      return { theme: 'system', bodyFont: 'San Francisco', codeFont: 'SF Mono' };
+    }
+    const settings = JSON.parse(fs.readFileSync(settings_path, 'utf-8'));
+    // Migrate old 'font' setting to bodyFont
+    if (settings.font && !settings.bodyFont) {
+      settings.bodyFont = settings.font === 'System Default' ? 'San Francisco' : settings.font;
+      delete settings.font;
+    }
+    // Set defaults if missing
+    if (!settings.bodyFont) settings.bodyFont = 'San Francisco';
+    if (!settings.codeFont) settings.codeFont = 'SF Mono';
+    return settings;
+  } catch (err) {
+    return { theme: 'system', bodyFont: 'San Francisco', codeFont: 'SF Mono' };
+  }
+}
+
+function save_settings(settings) {
+  try {
+    const settings_path = path.join(app.getPath('userData'), 'settings.json');
+    fs.mkdirSync(path.dirname(settings_path), { recursive: true });
+    fs.writeFileSync(settings_path, JSON.stringify(settings, null, 2));
+  } catch (err) {
+    console.error('Failed to save settings:', err);
+  }
+}
+
+let cached_system_fonts = null;
+
+function enumerate_system_fonts() {
+  if (cached_system_fonts) {
+    return cached_system_fonts;
+  }
+
+  try {
+    // Write JXA script to temp file to avoid escaping issues
+    const temp_script = path.join(os.tmpdir(), 'markpane-fonts.js');
+    const jxa_script = `ObjC.import('Cocoa');
+const font_manager = $.NSFontManager.sharedFontManager;
+const families_array = font_manager.availableFontFamilies;
+const families_count = families_array.count;
+
+const body_fonts = [];
+const mono_fonts = [];
+
+const excluded_patterns = [/^\\./, /emoji/i, /symbol/i, /braille/i, /wingdings/i, /zapf dingbats/i];
+
+for (let i = 0; i < families_count; i++) {
+  const family = ObjC.unwrap(families_array.objectAtIndex(i));
+
+  if (excluded_patterns.some(pattern => pattern.test(family))) {
+    continue;
+  }
+
+  const font = $.NSFont.fontWithNameSize(family, 12.0);
+  if (!font || font.js === null || font.js === undefined) {
+    continue;
+  }
+
+  const traits = font_manager.traitsOfFont(font);
+  const is_monospace = (traits & (1 << 10)) !== 0;
+
+  if (is_monospace) {
+    mono_fonts.push(family);
+  } else {
+    body_fonts.push(family);
+  }
+}
+
+if (!body_fonts.includes('San Francisco')) {
+  body_fonts.push('San Francisco');
+}
+if (!mono_fonts.includes('SF Mono')) {
+  mono_fonts.push('SF Mono');
+}
+
+body_fonts.sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+mono_fonts.sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+
+JSON.stringify({ body: body_fonts, mono: mono_fonts });`;
+
+    fs.writeFileSync(temp_script, jxa_script);
+
+    const result = spawnSync('osascript', ['-l', 'JavaScript', temp_script], {
+      timeout: 5000,
+      encoding: 'utf-8'
+    });
+
+    // Clean up temp file
+    try {
+      fs.unlinkSync(temp_script);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    if (result.error || result.status !== 0) {
+      console.error('[Font Enumeration] Failed:', result.stderr);
+      return null;
+    }
+
+    const fonts = JSON.parse(result.stdout.trim());
+    cached_system_fonts = fonts;
+    return fonts;
+  } catch (err) {
+    console.error('[Font Enumeration] Exception:', err);
+    return null;
+  }
+}
+
+function normalize_file_path(fp) {
+  try {
+    return fs.realpathSync(path.resolve(fp));
+  } catch (err) {
+    return path.resolve(fp);
+  }
+}
+
+function load_recent_files() {
+  try {
+    const recent_path = path.join(app.getPath('userData'), 'recent-files.json');
+    if (!fs.existsSync(recent_path)) {
+      return [];
+    }
+    const files = JSON.parse(fs.readFileSync(recent_path, 'utf-8'));
+    if (!Array.isArray(files)) return [];
+
+    // Migrate old format (array of objects) to new format (array of strings)
+    return files.map(item => {
+      if (typeof item === 'string') {
+        return item;
+      }
+      // Old format: {path, display_name, last_opened}
+      return item && item.path ? item.path : null;
+    }).filter(Boolean);
+  } catch (err) {
+    return [];
+  }
+}
+
+function save_recent_files(files) {
+  try {
+    const recent_path = path.join(app.getPath('userData'), 'recent-files.json');
+    fs.mkdirSync(path.dirname(recent_path), { recursive: true });
+    fs.writeFileSync(recent_path, JSON.stringify(files, null, 2));
+  } catch (err) {
+    console.error('Failed to save recent files:', err);
+  }
+}
+
+function add_recent_file(fp) {
+  const normalized = normalize_file_path(fp);
+  let recent = load_recent_files();
+
+  // Remove duplicates
+  recent = recent.filter(item => item !== normalized);
+
+  // Add to front
+  recent.unshift(normalized);
+
+  // Cap at 10
+  if (recent.length > 10) {
+    recent = recent.slice(0, 10);
+  }
+
+  save_recent_files(recent);
+  rebuild_app_menu();
 }
 
 function remove_quicklook_state() {
@@ -636,13 +729,117 @@ async function maybe_handle_quicklook_setup() {
   return true;
 }
 
-function toggle_always_on_top() {
-  if (!main_window || main_window.isDestroyed()) {
+// Per-window file watching
+function reload_file_for_window(win) {
+  if (!win || win.isDestroyed() || !win.markpane_file_path || !win.markpane_file_content) {
     return;
   }
 
-  const is_pinned = !main_window.isAlwaysOnTop();
-  main_window.setAlwaysOnTop(is_pinned);
+  const file_path = win.markpane_file_path;
+  if (!fs.existsSync(file_path)) {
+    return;
+  }
+
+  try {
+    const new_content = fs.readFileSync(file_path, 'utf-8');
+    if (new_content !== win.markpane_file_content) {
+      win.markpane_file_content = new_content;
+      const display_name = path.basename(file_path);
+      win.webContents.send('file-changed', new_content, display_name);
+    }
+  } catch (err) {
+    console.warn('File reload failed:', err.message);
+    win.webContents.send('error', `Live reload failed: ${err.message}`);
+  }
+}
+
+function start_file_watcher_for_window(win) {
+  if (!win || win.isDestroyed() || !win.markpane_file_path || win.markpane_watcher) {
+    return;
+  }
+
+  const file_path = win.markpane_file_path;
+
+  try {
+    win.markpane_watcher = fs.watch(file_path, { persistent: false }, (event_type) => {
+      // Debounce rapid changes
+      if (win.markpane_reload_debounce) {
+        clearTimeout(win.markpane_reload_debounce);
+      }
+
+      win.markpane_reload_debounce = setTimeout(() => {
+        if (fs.existsSync(file_path)) {
+          reload_file_for_window(win);
+        } else {
+          stop_file_watcher_for_window(win);
+          if (!win.isDestroyed()) {
+            win.webContents.send('error', 'File was deleted');
+          }
+        }
+      }, 300);
+    });
+
+    win.markpane_watcher.on('error', (err) => {
+      console.warn('File watcher error:', err.message);
+      if (!win.isDestroyed()) {
+        win.webContents.send('error', `File watch error: ${err.message}`);
+      }
+      stop_file_watcher_for_window(win);
+    });
+  } catch (err) {
+    console.warn('Failed to start file watcher:', err.message);
+    if (!win.isDestroyed()) {
+      win.webContents.send('error', `Failed to watch file: ${err.message}`);
+    }
+  }
+}
+
+function stop_file_watcher_for_window(win) {
+  if (!win) {
+    return;
+  }
+
+  if (win.markpane_watcher) {
+    try {
+      win.markpane_watcher.close();
+    } catch (err) {
+      console.warn('Error closing file watcher:', err.message);
+    }
+    win.markpane_watcher = null;
+  }
+
+  if (win.markpane_reload_debounce) {
+    clearTimeout(win.markpane_reload_debounce);
+    win.markpane_reload_debounce = null;
+  }
+}
+
+function open_file(fp) {
+  const normalized_path = normalize_file_path(fp);
+
+  // Check if file is already open
+  const existing_window = BrowserWindow.getAllWindows().find(
+    win => win.markpane_file_path === normalized_path
+  );
+
+  if (existing_window) {
+    if (existing_window.isDestroyed()) return;
+    existing_window.focus();
+    return;
+  }
+
+  create_window(normalized_path);
+  add_recent_file(normalized_path);
+}
+
+function toggle_always_on_top() {
+  const focused_win = BrowserWindow.getFocusedWindow();
+  if (!focused_win || focused_win.isDestroyed()) {
+    return;
+  }
+
+  const is_pinned = !focused_win.isAlwaysOnTop();
+  focused_win.setAlwaysOnTop(is_pinned);
 
   // Update menu checkmark
   const menu = Menu.getApplicationMenu();
@@ -654,16 +851,54 @@ function toggle_always_on_top() {
   }
 
   // Notify renderer
-  send_to_renderer('always-on-top-changed', is_pinned);
+  focused_win.webContents.send('always-on-top-changed', is_pinned);
 }
 
-function create_window() {
+function create_window(target_file_path) {
   const is_pdf_mode = !!pdf_output;
 
-  main_window = new BrowserWindow({
-    width: 900,
-    height: 700,
-    show: false,  // Don't show until ready
+  // Read file for this window
+  let file_content = null;
+  let error_message = null;
+  let display_name = 'MarkPane';
+
+  if (target_file_path) {
+    const normalized_path = normalize_file_path(target_file_path);
+    if (!fs.existsSync(normalized_path)) {
+      error_message = `File not found: ${normalized_path}`;
+    } else {
+      try {
+        file_content = fs.readFileSync(normalized_path, 'utf-8');
+        display_name = path.basename(normalized_path);
+      } catch (err) {
+        error_message = `Failed to read file: ${err.message}`;
+      }
+    }
+  }
+
+  // Load saved bounds or use defaults
+  const saved_bounds = load_window_bounds();
+  const default_bounds = { width: 900, height: 700 };
+
+  // Cascade position for additional windows
+  const existing_windows = BrowserWindow.getAllWindows().length;
+  const cascade_offset = existing_windows * 22;
+
+  const bounds = saved_bounds
+    ? {
+        x: saved_bounds.x + cascade_offset,
+        y: saved_bounds.y + cascade_offset,
+        width: saved_bounds.width,
+        height: saved_bounds.height
+      }
+    : {
+        width: default_bounds.width,
+        height: default_bounds.height
+      };
+
+  const win = new BrowserWindow({
+    ...bounds,
+    show: false,
     titleBarStyle: is_pdf_mode ? 'default' : 'hiddenInset',
     webPreferences: {
       contextIsolation: true,
@@ -672,38 +907,80 @@ function create_window() {
     }
   });
 
-  main_window.loadFile(path.join(__dirname, 'index.html'));
-  main_window.setTitle(display_name);
+  // Store file path and content on window
+  if (target_file_path) {
+    win.markpane_file_path = normalize_file_path(target_file_path);
+    win.markpane_file_content = file_content;
+  }
 
-  // Show window immediately when ready (no fade-in)
+  win.loadFile(path.join(__dirname, 'index.html'));
+  win.setTitle(display_name);
+
+  // Show window immediately when ready
   if (!is_pdf_mode) {
-    main_window.once('ready-to-show', () => {
-      main_window.show();
+    win.once('ready-to-show', () => {
+      win.show();
     });
   }
 
+  // Open external links in system browser
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        shell.openExternal(url);
+      }
+    } catch (e) {
+      // Ignore malformed URLs
+    }
+    return { action: 'deny' };
+  });
+
+  // Prevent navigation to external URLs
+  win.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault();
+    try {
+      const parsed_url = new URL(url);
+      if (parsed_url.protocol === 'http:' || parsed_url.protocol === 'https:') {
+        shell.openExternal(url);
+      }
+    } catch (e) {
+      // Malformed URL, do nothing
+    }
+  });
+
   // Forward renderer console to main process
-  main_window.webContents.on('console-message', (event, level, message) => {
+  win.webContents.on('console-message', (event, level, message) => {
     console.log(`[Renderer] ${message}`);
   });
 
-  main_window.webContents.on('did-finish-load', () => {
+  win.webContents.on('did-finish-load', () => {
     if (error_message) {
       if (is_pdf_mode) {
         console.error(error_message);
         app.quit();
       } else {
-        send_to_renderer('error', error_message);
+        win.webContents.send('error', error_message);
         dialog.showErrorBox('Error', error_message);
       }
     } else if (file_content) {
-      send_to_renderer('file-content', file_content, display_name, is_pdf_mode);
+      const settings = load_settings();
+      const system_fonts = enumerate_system_fonts();
+      if (system_fonts) {
+        win.webContents.send('system-fonts', system_fonts);
+      }
+      win.webContents.send('file-content', file_content, display_name, is_pdf_mode);
+      win.webContents.send('settings', settings);
+
+      // Start file watcher after sending content
+      if (!is_pdf_mode && target_file_path) {
+        start_file_watcher_for_window(win);
+      }
 
       if (is_pdf_mode) {
-        // Wait for mermaid diagrams to render (ELK renderer is slow)
         setTimeout(async () => {
           try {
-            const pdf_data = await main_window.webContents.printToPDF({
+            const pdf_data = await win.webContents.printToPDF({
               printBackground: true,
               pageSize: 'Letter',
               margins: {
@@ -722,36 +999,233 @@ function create_window() {
             console.error(`Failed to generate PDF: ${err.message}`);
             app.quit();
           }
-        }, 5000);  // 5 second delay for ELK mermaid rendering
+        }, 5000);
       }
     }
   });
 
-  // Only register shortcuts in UI mode
+  // Debounced bounds persistence
   if (!is_pdf_mode) {
-    globalShortcut.register('Escape', () => {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.close();
-      }
-    });
+    let save_timeout;
+    const debounced_save = () => {
+      clearTimeout(save_timeout);
+      save_timeout = setTimeout(() => {
+        const bounds = win.getBounds();
+        save_window_bounds(bounds);
+      }, 500);
+    };
 
-    globalShortcut.register('CommandOrControl+W', () => {
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.close();
-      }
-    });
+    win.on('move', debounced_save);
+    win.on('resize', debounced_save);
   }
 
-  main_window.on('closed', () => {
-    stop_file_watcher();
-    main_window = null;
+  // Clean up file watcher on window close
+  win.on('closed', () => {
+    stop_file_watcher_for_window(win);
   });
-
-  // Start file watcher (UI mode only)
-  if (!is_pdf_mode) {
-    start_file_watcher();
-  }
 }
+
+function rebuild_app_menu() {
+  if (!is_mac || !!pdf_output) {
+    return;
+  }
+
+  const recent_files = load_recent_files();
+  const recent_submenu = recent_files.length > 0
+    ? recent_files.map(fp => ({
+        label: path.basename(fp),
+        click: () => open_file(fp)
+      }))
+    : [{ label: 'No Recent Files', enabled: false }];
+
+  const template = [
+    {
+      label: app.name,
+      submenu: [
+        {
+          label: 'Uninstall Quick Look…',
+          click: uninstall_quicklook
+        },
+        {
+          label: 'Uninstall MarkPane…',
+          click: uninstall_all
+        },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open File…',
+          accelerator: 'CommandOrControl+O',
+          click: async () => {
+            const result = await dialog.showOpenDialog({
+              properties: ['openFile'],
+              filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
+            });
+            if (!result.canceled && result.filePaths.length > 0) {
+              open_file(result.filePaths[0]);
+            }
+          }
+        },
+        {
+          label: 'Open Recent',
+          submenu: recent_submenu
+        },
+        { type: 'separator' },
+        {
+          role: 'close',
+          label: 'Close',
+          accelerator: 'CommandOrControl+W'
+        }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle Table of Contents',
+          accelerator: 'CommandOrControl+Shift+O',
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused && !focused.isDestroyed()) {
+              focused.webContents.send('toggle-toc');
+            }
+          }
+        },
+        {
+          label: 'Find in Page',
+          accelerator: 'CommandOrControl+F',
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused && !focused.isDestroyed()) {
+              focused.webContents.send('show-find');
+            }
+          }
+        },
+        {
+          label: 'Settings',
+          accelerator: 'CommandOrControl+,',
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused && !focused.isDestroyed()) {
+              focused.webContents.send('toggle-settings');
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Pin Window',
+          type: 'checkbox',
+          id: 'pin-window',
+          accelerator: 'CmdOrCtrl+Shift+A',
+          checked: false,
+          click: toggle_always_on_top
+        }
+      ]
+    },
+    {
+      role: 'windowMenu'
+    }
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+// Find-in-page IPC handlers
+ipcMain.on('find-text', (event, query) => {
+  event.sender.findInPage(query, { findNext: true });
+});
+
+ipcMain.on('stop-find', (event, action) => {
+  const valid_actions = ['clearSelection', 'keepSelection', 'activateSelection'];
+  const validated_action = valid_actions.includes(action) ? action : 'clearSelection';
+  event.sender.stopFindInPage(validated_action);
+});
+
+// Settings IPC handlers
+ipcMain.on('save-settings', (event, settings) => {
+  save_settings(settings);
+  // Broadcast to all windows
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('settings-changed', settings);
+    }
+  });
+});
+
+// Window close handler
+ipcMain.on('close-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) win.close();
+});
+
+// Quit app handler
+ipcMain.on('quit-app', () => {
+  app.quit();
+});
+
+// Handle file open requests from renderer
+ipcMain.on('open-file', (event, new_file_path) => {
+  // Validate path type
+  if (typeof new_file_path !== 'string') {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('error', 'Invalid file path');
+    }
+    return;
+  }
+
+  // Normalize and resolve path (prevents traversal)
+  const resolved_path = path.resolve(new_file_path);
+
+  // Check extension (UX guard)
+  const allowed_extensions = ['.md', '.markdown', '.mdown', '.mkd', '.mkdn', '.mdwn', '.mdx', '.txt'];
+  const ext = path.extname(resolved_path).toLowerCase();
+  if (!allowed_extensions.includes(ext)) {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('error', 'Unsupported file type');
+    }
+    return;
+  }
+
+  // Check existence
+  if (!fs.existsSync(resolved_path)) {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('error', 'File not found');
+    }
+    return;
+  }
+
+  // Open in new window
+  open_file(resolved_path);
+});
+
+// Handle always-on-top toggle
+ipcMain.on('toggle-always-on-top', toggle_always_on_top);
+
+// Forward found-in-page events to renderer
+app.on('web-contents-created', (event, contents) => {
+  contents.on('found-in-page', (event, result) => {
+    contents.send('found-in-page', result);
+  });
+});
 
 app.whenReady().then(async () => {
   if (uninstall_quicklook_flag) {
@@ -766,132 +1240,70 @@ app.whenReady().then(async () => {
     return;
   }
 
-  // Handle file open requests from renderer
-  ipcMain.on('open-file', (event, new_file_path) => {
-    // Validate path type
-    if (typeof new_file_path !== 'string') {
-      send_to_renderer('error', 'Invalid file path');
-      return;
-    }
-
-    // Normalize and resolve path (prevents traversal)
-    const resolved_path = path.resolve(new_file_path);
-
-    // Check extension (UX guard)
-    const allowed_extensions = ['.md', '.markdown', '.mdown', '.mkd', '.mkdn', '.mdwn', '.mdx', '.txt'];
-    const ext = path.extname(resolved_path).toLowerCase();
-    if (!allowed_extensions.includes(ext)) {
-      send_to_renderer('error', 'Unsupported file type');
-      return;
-    }
-
-    // Check existence
-    if (!fs.existsSync(resolved_path)) {
-      send_to_renderer('error', 'File not found');
-      return;
-    }
-
-    // Read and send file
-    try {
-      stop_file_watcher();
-
-      // Read into local variables first, only mutate globals on success
-      const content = fs.readFileSync(resolved_path, 'utf-8');
-
-      // Success - update globals
-      file_path = resolved_path;
-      file_content = content;
-      display_name = path.basename(file_path);
-
-      send_to_renderer('file-content', file_content, display_name, false);
-      if (main_window && !main_window.isDestroyed()) {
-        main_window.setTitle(display_name);
-      }
-      start_file_watcher();
-    } catch (err) {
-      console.error('Failed to open file:', resolved_path, err.message);
-      send_to_renderer('error', `Failed to read file: ${err.message}`);
-    }
-  });
-
-  // Handle always-on-top toggle
-  ipcMain.on('toggle-always-on-top', toggle_always_on_top);
-
   const handled_quicklook = await maybe_handle_quicklook_setup();
   if (handled_quicklook) {
     return;
   }
 
-  // Build menu for all platforms
-  const is_pdf_mode = !!pdf_output;
-  if (!is_cli_mode && !is_pdf_mode) {
-    const template = [];
+  rebuild_app_menu();
 
-    // macOS-specific menu items
-    if (is_mac) {
-      template.push({
-        label: app.name,
-        submenu: [
-          {
-            label: 'Uninstall Quick Look…',
-            click: uninstall_quicklook
-          },
-          {
-            label: 'Uninstall MarkPane…',
-            click: uninstall_all
-          },
-          { type: 'separator' },
-          { role: 'quit' }
-        ]
+  if (file_path) {
+    create_window(file_path);
+    if (!pdf_output) {
+      add_recent_file(file_path);
+    }
+  } else if (!is_cli_mode) {
+    create_window(null);
+  }
+});
+
+// Flush window bounds before quit (debounce might drop last position)
+app.on('before-quit', () => {
+  const focused_window = BrowserWindow.getFocusedWindow();
+  if (focused_window && !focused_window.isDestroyed()) {
+    save_window_bounds(focused_window.getBounds());
+  } else {
+    // Fallback to first window if no focused window
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length > 0 && !windows[0].isDestroyed()) {
+      save_window_bounds(windows[0].getBounds());
+    }
+  }
+});
+
+// macOS: stay alive when all windows closed
+app.on('window-all-closed', () => {
+  if (!is_mac) {
+    app.quit();
+  }
+});
+
+// macOS: re-open window when dock icon clicked
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    const recent_files = load_recent_files();
+    if (recent_files.length > 0) {
+      open_file(recent_files[0]);
+    } else {
+      // Fallback: show open dialog
+      dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
+      }).then(result => {
+        if (!result.canceled && result.filePaths.length > 0) {
+          open_file(result.filePaths[0]);
+        }
       });
     }
-
-    // View menu (all platforms)
-    template.push({
-      label: 'View',
-      submenu: [
-        {
-          label: 'Toggle Table of Contents',
-          accelerator: 'CommandOrControl+Shift+O',
-          click: () => send_to_renderer('toggle-toc')
-        }
-      ]
-    });
-
-    // Window menu (all platforms)
-    template.push({
-      label: 'Window',
-      submenu: [
-        {
-          label: 'Pin Window',
-          type: 'checkbox',
-          id: 'pin-window',
-          accelerator: 'CmdOrCtrl+Shift+A',
-          checked: false,
-          click: toggle_always_on_top
-        }
-      ]
-    });
-
-
-    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   }
-
-  create_window();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      create_window();
-    }
-  });
 });
 
-app.on('window-all-closed', () => {
-  stop_file_watcher();
-  globalShortcut.unregisterAll();
-  app.quit();
-});
-
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
+// macOS: handle files opened from Finder/dock
+app.on('open-file', (event, file_path) => {
+  event.preventDefault();
+  if (app.isReady()) {
+    open_file(file_path);
+  } else {
+    app.whenReady().then(() => open_file(file_path));
+  }
 });

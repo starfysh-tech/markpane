@@ -16,9 +16,89 @@
   </div>
   <div class="titlebar-spacer">
     <div class="titlebar-traffic-spacer"></div>
-    <button id="toc-toggle" aria-label="Toggle Table of Contents" title="Toggle TOC (⌘⇧O)">☰</button>
+    <button id="toc-toggle" aria-label="Toggle Table of Contents" data-tooltip="Table of Contents" data-tooltip-shortcut="⌘⇧O">☰</button>
     <span id="filename"></span>
     <span id="pin-indicator" title="Always on top (Cmd+Shift+A)">📌</span>
+    <button id="settings-toggle" aria-label="Settings" data-tooltip="Settings" data-tooltip-shortcut="⌘,">⚙</button>
+  </div>
+  <div id="find-bar">
+    <input type="text" id="find-input" placeholder="Find in page..." />
+    <span class="find-count" id="find-count"></span>
+    <button id="find-close" aria-label="Close find bar" title="Close (Esc)">✕</button>
+  </div>
+  <div id="settings-panel">
+    <div class="settings-header">Settings</div>
+
+    <div class="settings-section">
+      <div class="settings-row">
+        <label for="theme-select">Theme</label>
+        <select id="theme-select">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-row settings-row-split">
+        <label for="body-font-select">Body Font</label>
+        <div class="settings-controls">
+          <div class="custom-select" id="body-font-select" data-category="proportional">
+            <div class="custom-select-trigger" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="custom-select-value">San Francisco</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-dropdown" role="listbox">
+              <div class="custom-select-option" data-value="San Francisco" role="option">San Francisco</div>
+            </div>
+          </div>
+          <select id="body-font-size-select" class="select-size">
+            <option value="12">12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+            <option value="16">16</option>
+            <option value="17">17</option>
+            <option value="18">18</option>
+            <option value="20">20</option>
+            <option value="22">22</option>
+            <option value="24">24</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-row settings-row-split">
+        <label for="code-font-select">Code Font</label>
+        <div class="settings-controls">
+          <div class="custom-select" id="code-font-select" data-category="mono">
+            <div class="custom-select-trigger" tabindex="0" role="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="custom-select-value">SF Mono</span>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+            <div class="custom-select-dropdown" role="listbox">
+              <div class="custom-select-option" data-value="SF Mono" role="option">SF Mono</div>
+            </div>
+          </div>
+          <select id="code-font-size-select" class="select-size">
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+            <option value="16">16</option>
+            <option value="18">18</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-footer">
+      <div class="settings-separator"></div>
+      <div class="settings-branding">MarkPane</div>
+    </div>
   </div>
   <div id="app-container">
     <nav id="toc-sidebar" role="tree" aria-label="Table of Contents"></nav>

@@ -28,6 +28,15 @@ let active_toc_li = null;
 let raf_pending = false;
 let resize_timer = null;
 
+// Settings state
+let current_settings = {
+  theme: 'system',
+  bodyFont: 'San Francisco',
+  bodyFontSize: '16',
+  codeFont: 'SF Mono',
+  codeFontSize: '14'
+};
+
 // Store default fence renderer
 const default_fence = md.renderer.rules.fence.bind(md.renderer.rules);
 
@@ -54,13 +63,6 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
 // Theme detection
 function get_prefers_dark() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
-function apply_theme() {
-  const prefers_dark = get_prefers_dark();
-  document.body.classList.toggle('theme-dark', prefers_dark);
-  document.body.classList.toggle('theme-light', !prefers_dark);
-  return prefers_dark;
 }
 
 // Initialize mermaid
@@ -111,7 +113,11 @@ async function render_mermaid() {
       const { svg } = await mermaid.render(id, content);
       element.innerHTML = svg;
     } catch (err) {
-      element.innerHTML = `<div class="mermaid-error">Diagram error: ${err.message}</div>`;
+      const error_div = document.createElement('div');
+      error_div.className = 'mermaid-error';
+      error_div.textContent = `Diagram error: ${err.message}`;
+      element.innerHTML = '';
+      element.appendChild(error_div);
     }
   }
 }
@@ -392,9 +398,7 @@ async function render_content(content) {
       frontmatter_html = `
         <section class="frontmatter">
           <div class="frontmatter-title">Frontmatter</div>
-          <pre>---
-${escaped_frontmatter}
----</pre>
+          <pre>${escaped_frontmatter}</pre>
         </section>
       `;
     }
@@ -465,6 +469,283 @@ function show_error(message) {
   content_element.innerHTML = `<div class="error-message">${DOMPurify.sanitize(message)}</div>`;
 }
 
+// Get font-family CSS for a given font name and category
+function get_font_family_css(font_name, category) {
+  if (category === 'proportional') {
+    if (font_name === 'San Francisco') {
+      return '-apple-system, BlinkMacSystemFont, sans-serif';
+    }
+    return `"${font_name}", sans-serif`;
+  } else if (category === 'mono') {
+    if (font_name === 'SF Mono') {
+      return 'ui-monospace, SFMono-Regular, "SF Mono", monospace';
+    }
+    return `"${font_name}", monospace`;
+  }
+  return '';
+}
+
+// Populate custom font dropdown with system fonts
+function populate_font_select(select_el, font_list, category) {
+  if (!select_el || !font_list) return;
+
+  const dropdown = select_el.querySelector('.custom-select-dropdown');
+  if (!dropdown) return;
+
+  // Clear existing options
+  dropdown.innerHTML = '';
+
+  // Create option elements
+  for (const font_name of font_list) {
+    const option = document.createElement('div');
+    option.className = 'custom-select-option';
+    option.setAttribute('data-value', font_name);
+    option.setAttribute('role', 'option');
+    option.textContent = font_name;
+
+    // Apply font-family for live preview
+    option.style.fontFamily = get_font_family_css(font_name, category);
+
+    dropdown.appendChild(option);
+  }
+}
+
+// Ensure a font option exists in the dropdown (for saved fonts that may be uninstalled)
+function ensure_font_option(select_el, font_name, category) {
+  if (!select_el || !font_name) return;
+
+  const dropdown = select_el.querySelector('.custom-select-dropdown');
+  if (!dropdown) return;
+
+  // Check if option already exists
+  const existing = dropdown.querySelector(`[data-value="${font_name}"]`);
+  if (existing) return;
+
+  // Add missing font with "(not installed)" suffix
+  const option = document.createElement('div');
+  option.className = 'custom-select-option';
+  option.setAttribute('data-value', font_name);
+  option.setAttribute('role', 'option');
+  option.textContent = `${font_name} (not installed)`;
+  option.style.fontFamily = get_font_family_css(font_name, category);
+
+  dropdown.appendChild(option);
+}
+
+// Get selected value from custom dropdown
+function get_custom_select_value(select_el) {
+  if (!select_el) return '';
+  const value_span = select_el.querySelector('.custom-select-value');
+  return value_span ? value_span.getAttribute('data-value') || '' : '';
+}
+
+// Set selected value in custom dropdown
+function set_custom_select_value(select_el, value, category) {
+  if (!select_el) return;
+
+  const value_span = select_el.querySelector('.custom-select-value');
+  const dropdown = select_el.querySelector('.custom-select-dropdown');
+
+  if (value_span) {
+    value_span.textContent = value;
+    value_span.setAttribute('data-value', value);
+    // Apply font to trigger for preview
+    value_span.style.fontFamily = get_font_family_css(value, category);
+  }
+
+  // Update selected state in options
+  if (dropdown) {
+    dropdown.querySelectorAll('.custom-select-option').forEach(opt => {
+      opt.classList.toggle('selected', opt.getAttribute('data-value') === value);
+    });
+  }
+}
+
+// Setup custom dropdown interactions
+function setup_custom_select(select_el, on_change) {
+  if (!select_el) return;
+
+  const trigger = select_el.querySelector('.custom-select-trigger');
+  const dropdown = select_el.querySelector('.custom-select-dropdown');
+  const category = select_el.getAttribute('data-category');
+
+  if (!trigger || !dropdown) return;
+
+  let focused_index = -1;
+
+  // Toggle dropdown on trigger click
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const is_open = select_el.classList.contains('open');
+
+    // Close all other dropdowns
+    document.querySelectorAll('.custom-select.open').forEach(el => {
+      if (el !== select_el) {
+        el.classList.remove('open');
+        el.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    // Toggle this dropdown
+    select_el.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', !is_open);
+
+    if (!is_open) {
+      // Scroll to selected option
+      const selected = dropdown.querySelector('.custom-select-option.selected');
+      if (selected) {
+        selected.scrollIntoView({ block: 'nearest' });
+      }
+      focused_index = -1;
+    }
+  });
+
+  // Handle option selection
+  dropdown.addEventListener('click', (e) => {
+    const option = e.target.closest('.custom-select-option');
+    if (!option) return;
+
+    const value = option.getAttribute('data-value');
+    set_custom_select_value(select_el, value, category);
+    select_el.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    if (on_change) {
+      on_change(value);
+    }
+  });
+
+  // Keyboard navigation
+  trigger.addEventListener('keydown', (e) => {
+    const is_open = select_el.classList.contains('open');
+    const options = Array.from(dropdown.querySelectorAll('.custom-select-option'));
+
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (!is_open) {
+          select_el.classList.add('open');
+          trigger.setAttribute('aria-expanded', 'true');
+          focused_index = options.findIndex(opt => opt.classList.contains('selected'));
+        } else if (focused_index >= 0) {
+          const value = options[focused_index].getAttribute('data-value');
+          set_custom_select_value(select_el, value, category);
+          select_el.classList.remove('open');
+          trigger.setAttribute('aria-expanded', 'false');
+          if (on_change) on_change(value);
+        }
+        break;
+
+      case 'Escape':
+        if (is_open) {
+          e.preventDefault();
+          select_el.classList.remove('open');
+          trigger.setAttribute('aria-expanded', 'false');
+          focused_index = -1;
+        }
+        break;
+
+      case 'ArrowDown':
+        e.preventDefault();
+        if (!is_open) {
+          select_el.classList.add('open');
+          trigger.setAttribute('aria-expanded', 'true');
+          focused_index = options.findIndex(opt => opt.classList.contains('selected'));
+        } else {
+          focused_index = Math.min(focused_index + 1, options.length - 1);
+          options.forEach((opt, i) => opt.classList.toggle('focused', i === focused_index));
+          if (options[focused_index]) {
+            options[focused_index].scrollIntoView({ block: 'nearest' });
+          }
+        }
+        break;
+
+      case 'ArrowUp':
+        e.preventDefault();
+        if (is_open) {
+          focused_index = Math.max(focused_index - 1, 0);
+          options.forEach((opt, i) => opt.classList.toggle('focused', i === focused_index));
+          if (options[focused_index]) {
+            options[focused_index].scrollIntoView({ block: 'nearest' });
+          }
+        }
+        break;
+
+      default:
+        // Type-ahead: jump to first option starting with pressed key
+        if (is_open && e.key.length === 1 && e.key.match(/[a-z]/i)) {
+          const letter = e.key.toLowerCase();
+          const idx = options.findIndex(opt =>
+            opt.getAttribute('data-value').toLowerCase().startsWith(letter)
+          );
+          if (idx >= 0) {
+            focused_index = idx;
+            options.forEach((opt, i) => opt.classList.toggle('focused', i === focused_index));
+            options[focused_index].scrollIntoView({ block: 'nearest' });
+          }
+        }
+        return;
+    }
+  });
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!select_el.contains(e.target)) {
+      select_el.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+      focused_index = -1;
+    }
+  });
+}
+
+// Apply settings (theme and fonts)
+function apply_settings(settings) {
+  current_settings = settings;
+  const content_el = document.getElementById('content');
+
+  // Apply theme
+  if (settings.theme === 'system') {
+    // Use system preference
+    const prefers_dark = get_prefers_dark();
+    document.body.classList.toggle('theme-dark', prefers_dark);
+    document.body.classList.toggle('theme-light', !prefers_dark);
+  } else if (settings.theme === 'dark') {
+    document.body.classList.add('theme-dark');
+    document.body.classList.remove('theme-light');
+  } else if (settings.theme === 'light') {
+    document.body.classList.remove('theme-dark');
+    document.body.classList.add('theme-light');
+  }
+
+  // Apply fonts
+  if (content_el) {
+    // Body font - map San Francisco to -apple-system
+    const body_font = settings.bodyFont === 'San Francisco'
+      ? '-apple-system, BlinkMacSystemFont'
+      : `"${settings.bodyFont}"`;
+    const body_fallback = ', "Segoe UI", Helvetica, Arial, sans-serif';
+
+    // Apply body font and size via CSS custom properties
+    content_el.style.setProperty('--custom-body-font', body_font + body_fallback);
+    content_el.style.setProperty('--custom-body-font-size', (settings.bodyFontSize || '16') + 'px');
+
+    // Code font - map SF Mono to system monospace stack
+    const code_font = settings.codeFont === 'SF Mono'
+      ? 'ui-monospace, SFMono-Regular, "SF Mono"'
+      : `"${settings.codeFont}"`;
+    const code_fallback = ', Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+
+    // Apply code font and size via CSS custom properties
+    content_el.style.setProperty('--custom-code-font', code_font + code_fallback);
+    content_el.style.setProperty('--custom-code-font-size', (settings.codeFontSize || '14') + 'px');
+  }
+
+  // Re-initialize mermaid with new theme
+  const prefers_dark = document.body.classList.contains('theme-dark');
+  init_mermaid(prefers_dark);
+}
+
 // Drag-and-drop file opening
 function setup_drag_drop() {
   let drag_counter = 0;
@@ -523,11 +804,11 @@ function init() {
   }
 
   // Initial theme setup
-  setup_theme();
+  apply_settings(current_settings);
 
-  // Listen for theme changes (only in UI mode)
+  // Listen for theme changes (only in UI mode, and only if using system theme)
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async () => {
-    if (is_pdf_mode) return;
+    if (is_pdf_mode || current_settings.theme !== 'system') return;
     setup_theme();
     await rerender_mermaid_with_theme();
   });
@@ -542,7 +823,7 @@ function init() {
     }
 
     if (filename) {
-      document.getElementById('filename').textContent = filename;
+      document.getElementById('filename').textContent = filename + ' - MarkPane';
     }
     await render_content(content);
   });
@@ -592,11 +873,9 @@ function init() {
   // Toggle TOC sidebar
   function toggle_toc() {
     const toc_sidebar = document.getElementById('toc-sidebar');
-    if (!toc_sidebar) {
-      console.error('TOC toggle failed: sidebar element not found');
-      return;
+    if (toc_sidebar) {
+      toc_sidebar.classList.toggle('toc-hidden');
     }
-    toc_sidebar.classList.toggle('toc-hidden');
   }
 
   // Toggle TOC sidebar on Cmd+Shift+O
@@ -607,6 +886,227 @@ function init() {
   if (toc_toggle_btn) {
     toc_toggle_btn.addEventListener('click', toggle_toc);
   }
+
+  // Toggle settings on Cmd+,
+  window.electronAPI.onToggleSettings(toggle_settings_panel);
+
+  // Find in page
+  const find_bar = document.getElementById('find-bar');
+  const find_input = document.getElementById('find-input');
+  const find_count = document.getElementById('find-count');
+  const find_close = document.getElementById('find-close');
+
+  function show_find_bar() {
+    if (!find_bar || !find_input) return;
+    find_bar.classList.add('visible');
+    find_input.focus();
+    find_input.select();
+  }
+
+  function hide_find_bar() {
+    if (!find_bar) return;
+    find_bar.classList.remove('visible');
+    if (find_input) find_input.blur();
+    window.electronAPI.stopFind('clearSelection');
+    if (find_count) {
+      find_count.textContent = '';
+    }
+  }
+
+  // Listen for Cmd+F from menu
+  window.electronAPI.onShowFind(show_find_bar);
+
+  // Search on input
+  if (find_input) {
+    find_input.addEventListener('input', (e) => {
+      const query = e.target.value;
+      if (query.length === 0) {
+        window.electronAPI.stopFind('clearSelection');
+        if (find_count) {
+          find_count.textContent = '';
+        }
+      } else {
+        window.electronAPI.findText(query);
+      }
+    });
+
+    // Close on Escape
+    find_input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        hide_find_bar();
+      }
+    });
+  }
+
+  // Update match count
+  window.electronAPI.onFoundInPage((result) => {
+    if (!find_count) return;
+    if (result.matches > 0) {
+      find_count.textContent = `${result.activeMatchOrdinal}/${result.matches}`;
+    } else if (find_input && find_input.value.length > 0) {
+      find_count.textContent = 'No matches';
+    } else {
+      find_count.textContent = '';
+    }
+  });
+
+  // Close button
+  if (find_close) {
+    find_close.addEventListener('click', hide_find_bar);
+  }
+
+  // Settings panel
+  const settings_panel = document.getElementById('settings-panel');
+  const settings_toggle_btn = document.getElementById('settings-toggle');
+  const theme_select = document.getElementById('theme-select');
+  const body_font_select = document.getElementById('body-font-select');
+  const body_font_size_select = document.getElementById('body-font-size-select');
+  const code_font_select = document.getElementById('code-font-select');
+  const code_font_size_select = document.getElementById('code-font-size-select');
+
+  function show_settings_panel() {
+    if (!settings_panel) return;
+    settings_panel.classList.add('visible');
+  }
+
+  function hide_settings_panel() {
+    if (!settings_panel) return;
+    settings_panel.classList.remove('visible');
+  }
+
+  function toggle_settings_panel() {
+    if (!settings_panel) return;
+    settings_panel.classList.toggle('visible');
+  }
+
+  // Listen for system fonts from main process (sent before settings)
+  window.electronAPI.onSystemFonts((fonts) => {
+    populate_font_select(body_font_select, fonts.body, 'proportional');
+    populate_font_select(code_font_select, fonts.mono, 'mono');
+  });
+
+  // Listen for initial settings from main process
+  window.electronAPI.onSettings(async (settings) => {
+    apply_settings(settings);
+    // Update UI
+    if (theme_select) theme_select.value = settings.theme;
+    if (body_font_select) {
+      ensure_font_option(body_font_select, settings.bodyFont || 'San Francisco', 'proportional');
+      set_custom_select_value(body_font_select, settings.bodyFont || 'San Francisco', 'proportional');
+    }
+    if (body_font_size_select) body_font_size_select.value = settings.bodyFontSize || '16';
+    if (code_font_select) {
+      ensure_font_option(code_font_select, settings.codeFont || 'SF Mono', 'mono');
+      set_custom_select_value(code_font_select, settings.codeFont || 'SF Mono', 'mono');
+    }
+    if (code_font_size_select) code_font_size_select.value = settings.codeFontSize || '14';
+    // Re-render mermaid if theme override is active
+    if (settings.theme !== 'system') {
+      await rerender_mermaid_with_theme();
+    }
+  });
+
+  // Listen for settings changes from other windows
+  window.electronAPI.onSettingsChanged(async (settings) => {
+    apply_settings(settings);
+    // Update UI
+    if (theme_select) theme_select.value = settings.theme;
+    if (body_font_select) {
+      ensure_font_option(body_font_select, settings.bodyFont || 'San Francisco', 'proportional');
+      set_custom_select_value(body_font_select, settings.bodyFont || 'San Francisco', 'proportional');
+    }
+    if (body_font_size_select) body_font_size_select.value = settings.bodyFontSize || '16';
+    if (code_font_select) {
+      ensure_font_option(code_font_select, settings.codeFont || 'SF Mono', 'mono');
+      set_custom_select_value(code_font_select, settings.codeFont || 'SF Mono', 'mono');
+    }
+    if (code_font_size_select) code_font_size_select.value = settings.codeFontSize || '14';
+    // Re-render mermaid with new theme
+    await rerender_mermaid_with_theme();
+  });
+
+  // Gear button click
+  if (settings_toggle_btn) {
+    settings_toggle_btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggle_settings_panel();
+    });
+  }
+
+  // Click outside to close
+  document.addEventListener('click', (e) => {
+    if (settings_panel &&
+        settings_panel.classList.contains('visible') &&
+        !settings_panel.contains(e.target) &&
+        e.target !== settings_toggle_btn) {
+      hide_settings_panel();
+    }
+  });
+
+  // Theme select change
+  if (theme_select) {
+    theme_select.addEventListener('change', async (e) => {
+      const new_settings = { ...current_settings, theme: e.target.value };
+      apply_settings(new_settings);
+      window.electronAPI.saveSettings(new_settings);
+      // Re-render mermaid with new theme
+      await rerender_mermaid_with_theme();
+    });
+  }
+
+  // Setup custom font dropdowns
+  if (body_font_select) {
+    setup_custom_select(body_font_select, (value) => {
+      const new_settings = { ...current_settings, bodyFont: value };
+      apply_settings(new_settings);
+      window.electronAPI.saveSettings(new_settings);
+    });
+  }
+
+  if (code_font_select) {
+    setup_custom_select(code_font_select, (value) => {
+      const new_settings = { ...current_settings, codeFont: value };
+      apply_settings(new_settings);
+      window.electronAPI.saveSettings(new_settings);
+    });
+  }
+
+  // Body font size select change
+  if (body_font_size_select) {
+    body_font_size_select.addEventListener('change', (e) => {
+      const new_settings = { ...current_settings, bodyFontSize: e.target.value };
+      apply_settings(new_settings);
+      window.electronAPI.saveSettings(new_settings);
+    });
+  }
+
+  // Code font size select change
+  if (code_font_size_select) {
+    code_font_size_select.addEventListener('change', (e) => {
+      const new_settings = { ...current_settings, codeFontSize: e.target.value };
+      apply_settings(new_settings);
+      window.electronAPI.saveSettings(new_settings);
+    });
+  }
+
+  // Global escape handler - close window if no panels are open
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const find_visible = find_bar && find_bar.classList.contains('visible');
+      const settings_visible = settings_panel && settings_panel.classList.contains('visible');
+
+      if (settings_visible) {
+        e.stopPropagation();
+        hide_settings_panel();
+      } else if (find_visible) {
+        hide_find_bar();
+      } else {
+        // No panels open - quit app
+        window.electronAPI.quitApp();
+      }
+    }
+  });
 }
 
 init();
