@@ -1027,9 +1027,8 @@ What makes markpane special:
             }
             html += md.render(body);
 
-            // Allow mermaid divs through DOMPurify
+            // Sanitize the HTML from markdown-it before insertion.
             html = DOMPurify.sanitize(html, {
-                ADD_TAGS: ['svg', 'use'],
                 FORCE_BODY: true
             });
 
