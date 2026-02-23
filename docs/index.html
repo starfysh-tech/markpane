@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/highlight-dark.css">
     <style>
         :root {
             --bg-primary: #0a0a0a;
@@ -187,6 +188,151 @@
             height: auto;
             display: block;
         }
+
+        /* Rendered markdown output */
+        .rendered-output {
+            padding: 1.5rem;
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            text-align: left;
+        }
+
+        .rendered-output h1,
+        .rendered-output h2,
+        .rendered-output h3,
+        .rendered-output h4 {
+            color: var(--text-primary);
+            margin: 1.5rem 0 0.75rem;
+            line-height: 1.3;
+            font-weight: 600;
+        }
+
+        .rendered-output h1 { font-size: 1.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        .rendered-output h2 { font-size: 1.375rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+        .rendered-output h3 { font-size: 1.125rem; }
+
+        .rendered-output p { margin: 0.75rem 0; }
+
+        .rendered-output ul, .rendered-output ol {
+            padding-left: 2rem;
+            margin: 0.75rem 0;
+        }
+
+        .rendered-output li { margin: 0.3rem 0; }
+
+        .rendered-output code {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 0.15em 0.4em;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875em;
+            color: var(--accent);
+        }
+
+        .rendered-output pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        .rendered-output pre code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: inherit;
+            font-size: 0.875rem;
+        }
+
+        .rendered-output blockquote {
+            border-left: 3px solid var(--accent);
+            padding: 0.5rem 1rem;
+            margin: 1rem 0;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .rendered-output blockquote p { margin: 0; }
+
+        .rendered-output table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.875rem;
+        }
+
+        .rendered-output th,
+        .rendered-output td {
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.75rem;
+        }
+
+        .rendered-output th {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .rendered-output td { color: var(--text-secondary); }
+        .rendered-output tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+        .rendered-output hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 1.5rem 0;
+        }
+
+        .rendered-output a { color: var(--accent); text-decoration: none; }
+        .rendered-output a:hover { text-decoration: underline; }
+        .rendered-output strong { color: var(--text-primary); font-weight: 600; }
+        .rendered-output em { color: var(--text-secondary); font-style: italic; }
+
+        .frontmatter-block {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .frontmatter-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .frontmatter-block pre {
+            margin: 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            background: none;
+            border: none;
+            padding: 0;
+            white-space: pre-wrap;
+        }
+
+        .rendered-output .mermaid {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        .rendered-output .mermaid svg { max-width: 100%; }
 
         .cta-buttons {
             display: flex;
@@ -635,8 +781,8 @@ What makes markpane special:
                 </div>
                 <div class="comparison-box">
                     <div class="comparison-header">Rendered Output</div>
-                    <div class="comparison-scroll" id="screenshot-scroll">
-                        <img src="assets/screenshot.png" alt="MarkPane rendered output" />
+                    <div class="comparison-scroll" id="rendered-scroll">
+                        <div id="rendered-output" class="rendered-output"></div>
                     </div>
                 </div>
             </div>
@@ -835,6 +981,63 @@ What makes markpane special:
         </div>
     </footer>
 
+    <script src="assets/markdown-it.min.js"></script>
+    <script src="assets/highlight.min.js"></script>
+    <script src="assets/purify.min.js"></script>
+    <script src="assets/mermaid.min.js"></script>
+    <script>
+        (function () {
+            const raw = document.querySelector('#markdown-scroll code').textContent;
+
+            // Parse YAML frontmatter
+            const fm_match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+            const frontmatter = fm_match ? fm_match[1] : null;
+            const body = fm_match ? fm_match[2] : raw;
+
+            const md = window.markdownit({
+                html: false,
+                linkify: true,
+                typographer: false,
+                highlight: function (str, lang) {
+                    if (lang && window.hljs.getLanguage(lang)) {
+                        return '<pre class="hljs"><code>' +
+                            window.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                            '</code></pre>';
+                    }
+                    return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+                }
+            });
+
+            // Custom fence renderer: mermaid blocks → .mermaid div
+            const default_fence = md.renderer.rules.fence.bind(md.renderer.rules);
+            md.renderer.rules.fence = function (tokens, idx, options, env, self) {
+                const token = tokens[idx];
+                if (token.info.trim() === 'mermaid') {
+                    return '<div class="mermaid">' + md.utils.escapeHtml(token.content) + '</div>';
+                }
+                return default_fence(tokens, idx, options, env, self);
+            };
+
+            let html = '';
+            if (frontmatter) {
+                html += '<div class="frontmatter-block">' +
+                    '<div class="frontmatter-label">Frontmatter</div>' +
+                    '<pre>' + md.utils.escapeHtml(frontmatter) + '</pre>' +
+                    '</div>';
+            }
+            html += md.render(body);
+
+            // Sanitize the HTML from markdown-it before insertion.
+            html = DOMPurify.sanitize(html, {
+                FORCE_BODY: true
+            });
+
+            document.getElementById('rendered-output').innerHTML = html;
+
+            mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
+            mermaid.run({ nodes: document.querySelectorAll('#rendered-output .mermaid') });
+        })();
+    </script>
     <script>
         function copyCode(button) {
             const codeBlock = button.closest('.code-block');
@@ -855,7 +1058,7 @@ What makes markpane special:
         // Synchronized scrolling for comparison boxes
         (function() {
             const markdownScroll = document.getElementById('markdown-scroll');
-            const screenshotScroll = document.getElementById('screenshot-scroll');
+            const screenshotScroll = document.getElementById('rendered-scroll');
 
             if (!markdownScroll || !screenshotScroll) return;
 

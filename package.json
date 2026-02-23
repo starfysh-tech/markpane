@@ -1,6 +1,6 @@
 {
   "name": "markpane",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A lightweight Electron viewer that renders markdown files with mermaid diagram support",
   "main": "src/main.js",
   "bin": "./bin/markpane.js",
@@ -9,7 +9,8 @@
     "build": "electron-builder",
     "build:quicklook": "./scripts/build-quicklook.sh",
     "build:mac": "./scripts/build-quicklook.sh && electron-builder --mac && ./scripts/notarize.sh",
-    "build:mas": "./scripts/build-quicklook.sh && electron-builder --mac mas"
+    "build:mas": "./scripts/build-quicklook.sh && electron-builder --mac mas",
+    "release:upload": "gh release upload v$(jq -r .version package.json) dist/MarkPane-$(jq -r .version package.json)-arm64.dmg"
   },
   "keywords": [
     "markdown",
