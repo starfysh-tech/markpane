@@ -43,7 +43,7 @@
       "signIgnore": [
         "MarkPaneQLHost\\.app\\.bundled"
       ],
-      "target": ["dmg", "mas"],
+      "target": ["dmg"],
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "hardenedRuntime": true,

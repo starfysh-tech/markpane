@@ -85,7 +85,7 @@ out
 dist
 macos/build
 assets/quicklook/MarkPaneQLHost.app.bundled
-macos/MarkPaneQL.xcodeproj/xcuserdata/
+**/xcuserdata/
 macos/MarkPaneQL.xcodeproj/project.xcworkspace/
 
 # Gatsby files

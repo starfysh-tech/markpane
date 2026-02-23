@@ -451,17 +451,11 @@ function uninstall_quicklook() {
   if (state && state.helper_path) {
     helper_paths.add(state.helper_path);
   }
-  // New paths
   helper_paths.add(path.join('/Applications', 'MarkPaneQLHost.app'));
   helper_paths.add(path.join(os.homedir(), 'Applications', 'MarkPaneQLHost.app'));
-  // Old paths (for existing Peekdown installs)
-  helper_paths.add(path.join('/Applications', 'PeekdownQLHost.app'));
-  helper_paths.add(path.join(os.homedir(), 'Applications', 'PeekdownQLHost.app'));
 
   for (const helper_path of helper_paths) {
-    // Try both old and new extension names
-    const is_old_peekdown = helper_path.includes('Peekdown');
-    const extension_name = is_old_peekdown ? 'PeekdownQLExt.appex' : 'MarkPaneQLExt.appex';
+    const extension_name = 'MarkPaneQLExt.appex';
     const extension_path = path.join(helper_path, 'Contents', 'PlugIns', extension_name);
     if (fs.existsSync(extension_path)) {
       spawnSync('pluginkit', ['-r', extension_path], { stdio: 'ignore' });
@@ -474,11 +468,7 @@ function uninstall_quicklook() {
   spawnSync('qlmanage', ['-r'], { stdio: 'ignore' });
   spawnSync('qlmanage', ['-r', 'cache'], { stdio: 'ignore' });
 
-  // Clean up both old and new container caches
-  const container_ids = [
-    'com.markpane.app.quicklook-host.quicklook',
-    'com.peekdown.app.quicklook-host.quicklook'
-  ];
+  const container_ids = ['com.markpane.app.quicklook-host.quicklook'];
   for (const container_id of container_ids) {
     try {
       const container_cache = path.join(
